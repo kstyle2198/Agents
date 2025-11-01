@@ -1,0 +1,30 @@
+services:
+
+  backend:
+    build: backend
+    ports:
+      - 8000:8000
+    volumes:
+      - ./llms:/backend/llms
+    networks:
+      - agent-net
+
+  frontend:
+    build: frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ENABLECORS=false
+    volumes:
+      - ./frontend:/frontend
+    networks:
+      - agent-net
+    depends_on:
+      - backend
+
+networks:
+  agent-net:
+    driver: bridge
