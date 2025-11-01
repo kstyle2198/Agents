@@ -6,11 +6,13 @@ from typing import List, Dict, Optional, Union, TypedDict, Annotated
 from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException
 from langchain_ollama import OllamaEmbeddings
-from langchain_elasticsearch import ElasticsearchStore
+# from langchain_elasticsearch import ElasticsearchStore
 from langchain_tavily import TavilySearch
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, MessagesState, START, END
 from transformers import AutoModel
+from elasticsearch import Elasticsearch
+from functools import lru_cache
 
 # 로거 설정
 import logging
@@ -23,33 +25,259 @@ load_dotenv(override=True)
 think_model = os.getenv("THINK_MODEL")
 no_think_model = os.getenv("NO_THINK_MODEL")
 
-reranker = FlagReranker(model_name_or_path="./llms/bge-reranker-v2-m3" , 
+reranker = FlagReranker(model_name_or_path="../llms/bge-reranker-v2-m3" , 
                         use_fp16=True,
                         batch_size=512,
                         max_length=2048,
                         normalize=True)
 
-def load_elastic_vectorstore(index_names: Union[str, List[str]]):
-    logger.info(f"Load Elastic VectorStore")
-    try:
-        # 단일 문자열인 경우 리스트로 변환
+# ✅ 1. 임베딩 모델 캐싱
+@lru_cache(maxsize=1)
+def get_ollama_embedding():
+    logger.info("Initializing Ollama Embeddings (cached)")
+    return OllamaEmbeddings(
+        base_url="http://localhost:11434",
+        model="bge-m3:latest"
+    )
+
+# ✅ 2. 엘라스틱 클라이언트 캐싱
+@lru_cache(maxsize=1)
+def get_elastic_client():
+    logger.info("Connecting to Elasticsearch (cached)")
+    return Elasticsearch(
+        "http://localhost:9200",
+        basic_auth=("Kstyle", "12345"),
+        verify_certs=False,
+        request_timeout=5,
+        max_retries=1,
+    )
+
+class ElasticsearchVectorStore:
+    """Elasticsearch 벡터 저장소 직접 구현"""
+    
+    def __init__(self, index_names: Union[str, List[str]], embedding_model):
+        self.es_client = get_elastic_client()
+        self.embedding_model = embedding_model
+        
         if isinstance(index_names, str):
             index_names = [index_names]
+        self.index_names = index_names
         
-        vector_store = ElasticsearchStore(
-            index_name=index_names, 
-            embedding=OllamaEmbeddings(
-                base_url="http://localhost:11434", 
-                model="bge-m3:latest"
-            ), 
-            es_url="http://localhost:9200",
-            es_user="Kstyle",
-            es_password="12345",
+        # 인덱스 존재 여부 확인
+        existing_indices = self.es_client.indices.get_alias(index="*").keys()
+        self.valid_indices = [i for i in index_names if i in existing_indices]
+        
+        if not self.valid_indices:
+            raise ValueError(f"No valid indices found in Elasticsearch: {index_names}")
+        
+        logger.info(f"Initialized ElasticsearchVectorStore with indices: {self.valid_indices}")
+    
+    def similarity_search(self, query: str, k: int = 4, **kwargs) -> List[Dict]:
+        """쿼리와 유사한 문서 검색"""
+        try:
+            # 쿼리 임베딩 생성
+            query_embedding = self.embedding_model.embed_query(query)
+            
+            # Elasticsearch에서 벡터 유사도 검색
+            search_body = {
+                "query": {
+                    "script_score": {
+                        "query": {"match_all": {}},
+                        "script": {
+                            "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
+                            "params": {"query_vector": query_embedding}
+                        }
+                    }
+                },
+                "size": k,
+                "_source": ["content", "metadata"]
+            }
+            
+            results = []
+            for index_name in self.valid_indices:
+                try:
+                    response = self.es_client.search(
+                        index=index_name,
+                        body=search_body
+                    )
+                    
+                    for hit in response["hits"]["hits"]:
+                        result = {
+                            "content": hit["_source"].get("content", ""),
+                            "metadata": hit["_source"].get("metadata", {}),
+                            "score": hit["_score"]
+                        }
+                        results.append(result)
+                        
+                except Exception as e:
+                    logger.warning(f"Error searching index {index_name}: {e}")
+                    continue
+            
+            # 점수 기준으로 정렬 및 상위 k개 결과 반환
+            results.sort(key=lambda x: x["score"], reverse=True)
+            return results[:k]
+            
+        except Exception as e:
+            logger.error(f"Error in similarity_search: {e}")
+            return []
+    
+    def similarity_search_with_score(self, query: str, k: int = 4, **kwargs) -> List[tuple]:
+        """점수와 함께 유사도 검색 수행"""
+        results = self.similarity_search(query, k, **kwargs)
+        return [(result["content"], result["score"]) for result in results]
+    
+    def max_marginal_relevance_search(self, query: str, k: int = 4, fetch_k: int = 20, **kwargs) -> List[str]:
+        """MMR(Maximal Marginal Relevance) 검색"""
+        try:
+            # 더 많은 결과를 먼저 가져옴
+            initial_results = self.similarity_search(query, fetch_k, **kwargs)
+            
+            if not initial_results:
+                return []
+            
+            # 쿼리 임베딩
+            query_embedding = self.embedding_model.embed_query(query)
+            
+            # 결과 임베딩 계산 (간단한 구현)
+            results_with_embeddings = []
+            for result in initial_results:
+                # 실제 구현에서는 문서의 임베딩을 저장해두거나 다시 계산
+                doc_embedding = self.embedding_model.embed_query(result["content"])
+                results_with_embeddings.append({
+                    "content": result["content"],
+                    "embedding": doc_embedding,
+                    "score": result["score"]
+                })
+            
+            # MMR 선택
+            selected = []
+            remaining = results_with_embeddings.copy()
+            
+            # 첫 번째 문서는 가장 유사한 것으로 선택
+            if remaining:
+                selected.append(remaining.pop(0))
+            
+            # 나머지 문서 선택
+            while len(selected) < k and remaining:
+                best_score = -1
+                best_idx = -1
+                
+                for i, doc in enumerate(remaining):
+                    # 다양성 점수 계산 (간단한 구현)
+                    similarity_to_query = self._cosine_similarity(query_embedding, doc["embedding"])
+                    
+                    max_similarity_to_selected = 0
+                    for sel in selected:
+                        sim = self._cosine_similarity(sel["embedding"], doc["embedding"])
+                        if sim > max_similarity_to_selected:
+                            max_similarity_to_selected = sim
+                    
+                    # MMR 점수
+                    mmr_score = similarity_to_query - max_similarity_to_selected
+                    
+                    if mmr_score > best_score:
+                        best_score = mmr_score
+                        best_idx = i
+                
+                if best_idx >= 0:
+                    selected.append(remaining.pop(best_idx))
+            
+            return [doc["content"] for doc in selected]
+            
+        except Exception as e:
+            logger.error(f"Error in MMR search: {e}")
+            # 실패시 일반 유사도 검색으로 폴백
+            results = self.similarity_search(query, k, **kwargs)
+            return [result["content"] for result in results]
+    
+    def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
+        """코사인 유사도 계산"""
+        vec1 = np.array(vec1)
+        vec2 = np.array(vec2)
+        return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+
+def load_elastic_vectorstore(index_names: Union[str, List[str]]):
+    """Elasticsearch 벡터 저장소 로드"""
+    logger.info("Load Elastic VectorStore")
+
+    try:
+        embedding = get_ollama_embedding()
+        es_client = get_elastic_client()
+
+        # ✅ 인덱스 존재 여부 확인
+        existing_indices = es_client.indices.get_alias(index="*").keys()
+        valid_indices = [i for i in ([index_names] if isinstance(index_names, str) else index_names) 
+                        if i in existing_indices]
+
+        if not valid_indices:
+            raise ValueError(f"No valid indices found in Elasticsearch: {index_names}")
+
+        # ✅ 직접 구현한 ElasticsearchVectorStore 사용
+        vector_store = ElasticsearchVectorStore(
+            index_names=valid_indices,
+            embedding_model=embedding
         )
+
+        logger.info(f"Loaded {len(valid_indices)} existing indices successfully.")
         return vector_store
-    except Exception as e:
+
+    except Exception:
         logger.exception("Error occurred during Elastic VectorStore Loading")
         raise
+
+
+# def load_elastic_vectorstore(index_names: Union[str, List[str]]):
+#     logger.info("Load Elastic VectorStore")
+
+#     try:
+#         if isinstance(index_names, str):
+#             index_names = [index_names]
+
+#         embedding = get_ollama_embedding()
+#         es_client = get_elastic_client()
+
+#         # ✅ 인덱스 존재 여부를 사전에 확인 (불필요한 생성 방지)
+#         existing_indices = es_client.indices.get_alias(index="*").keys()
+#         valid_indices = [i for i in index_names if i in existing_indices]
+
+#         if not valid_indices:
+#             raise ValueError(f"No valid indices found in Elasticsearch: {index_names}")
+
+#         # ✅ ElasticsearchStore 초기화 (불필요한 인덱스 생성 방지)
+#         vector_store = ElasticsearchStore(
+#             index_name=valid_indices,
+#             embedding=embedding,
+#             es_connection=es_client
+#         )
+
+#         logger.info(f"Loaded {len(valid_indices)} existing indices successfully.")
+#         return vector_store
+
+#     except Exception:
+#         logger.exception("Error occurred during Elastic VectorStore Loading")
+#         raise
+
+# def load_elastic_vectorstore(index_names: Union[str, List[str]]):
+#     logger.info(f"Load Elastic VectorStore")
+#     try:
+#         # 단일 문자열인 경우 리스트로 변환
+#         if isinstance(index_names, str):
+#             index_names = [index_names]
+        
+#         vector_store = ElasticsearchStore(
+#             index_name=index_names, 
+#             embedding=OllamaEmbeddings(
+#                 base_url="http://localhost:11434", 
+#                 model="bge-m3:latest"
+#             ), 
+#             es_url="http://localhost:9200",
+#             es_user="Kstyle",
+#             es_password="12345",
+#         )
+#         return vector_store
+#     except Exception as e:
+#         logger.exception("Error occurred during Elastic VectorStore Loading")
+#         raise
 
 index_names = ["rule"]
 vector_store = load_elastic_vectorstore(index_names=index_names)
@@ -91,7 +319,6 @@ class OverAllState(TypedDict):
     rerank_threshold: float = 0.01
     generations: Annotated[list, operator.add] # 응답 결과 누적
 
-
 def retrieve_agent(state: OverAllState):
     """
     Retrieve documents
@@ -121,7 +348,6 @@ def retrieve_agent(state: OverAllState):
     except Exception as e:
         logger.exception("Error occurred during retrieve agent")
         raise
-
 
 def reranking_agent(state:OverAllState):
     """Rerank retrieved documents"""
@@ -172,7 +398,6 @@ class SearchResponse(BaseModel):
     search_results_history: List[List[Dict]] # 누적된 검색 결과 히스토리 추가 (각 검색 단계별 결과 리스트)
     reranked_results_history: List[List[Dict]] # 누적된 리랭크 결과 히스토리 추가 (각 리랭크 단계별 결과 리스트)
     rerank_scores_history: List[List[float]] # 누적된 리랭크 스코어 히스토리 추가 (각 리랭크 단계별 스코어 리스트)
-
 
 hybrid_search = APIRouter()
 

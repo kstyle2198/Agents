@@ -14,9 +14,6 @@ logger = setup_logger(f"{__name__}", level=logging.DEBUG)
 from dotenv import load_dotenv
 load_dotenv()
 think_model = os.getenv("THINK_MODEL")
-no_think_model = os.getenv("NO_THINK_MODEL")
-
-llm = ChatGroq(model_name=no_think_model, temperature=0,max_tokens=3000,) 
 llm_think = ChatGroq(model_name=think_model, temperature=0,max_tokens=3000,) 
 
 
@@ -56,7 +53,6 @@ Context: {context}
 Answer:"""
 
 
-
 def format_docs(docs: List[str]) -> str:
     """Format documents for context"""
     return "\n\n".join(doc["page_content"] for doc in docs)
@@ -90,7 +86,6 @@ async def generate_agent(state: OverAllState) -> Dict[str, List[str]]:
     except Exception as e:
         logger.exception("Error occurred during generate agent")
         raise
-
 
 def create_gen_graph() -> StateGraph:
     """Create and configure the generation graph"""
@@ -145,7 +140,6 @@ async def generate_stream(state: Dict, thread_id: str):
                 })
         else: pass
 
-
 from fastapi import APIRouter, HTTPException
 generate = APIRouter()
 
@@ -159,7 +153,6 @@ class GenerationRequest(BaseModel):
 class GenerationResponse(BaseModel):
     """Response model for generation"""
     answer: str
-
 
 @generate.post("/generate", response_model=GenerationResponse, tags=["Generate"], operation_id="generate_content")
 async def generate_content(request: GenerationRequest):

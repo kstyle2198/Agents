@@ -4,8 +4,6 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from elasticsearch import Elasticsearch
 from langchain_ollama import OllamaEmbeddings
-from langchain_elasticsearch import ElasticsearchStore
-
 
 from dotenv import load_dotenv
 load_dotenv(override=True)
@@ -47,20 +45,22 @@ async def health_check():
 from routers.web import web_search
 from routers.wiki import wiki_search
 from routers.arxiv import arxiv_search
-from routers.hybrid_search import hybrid_search
+# from routers.hybrid_search import hybrid_search
 from routers.refine import refine
 from routers.generate import generate
 from routers.schedule import schedule
 from routers.sql_agent import sql_agent
+from routers.stream_agent import stream_agent
 
 app.include_router(schedule)
 app.include_router(refine)
-app.include_router(hybrid_search)
+# app.include_router(hybrid_search)
 app.include_router(web_search)
 app.include_router(wiki_search)
 app.include_router(arxiv_search)
 app.include_router(generate)
 app.include_router(sql_agent)
+app.include_router(stream_agent)
 
 
 def load_elastic_vectorstore(index_names):

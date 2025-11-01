@@ -2,7 +2,7 @@ from langchain_tavily import TavilySearch
 from typing import List
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, MessagesState, START, END
-from langchain.schema import Document
+from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_groq import ChatGroq
@@ -30,11 +30,9 @@ def do_web_search(question: str):
         logger.exception("Error occurred during web search")
         raise
 
-
 from pydantic import BaseModel
 class SearchRequest(BaseModel):
     query: str
-
 
 from fastapi import APIRouter, HTTPException
 web_search = APIRouter()

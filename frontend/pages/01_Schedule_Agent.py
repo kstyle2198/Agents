@@ -32,7 +32,7 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # 채팅 입력
-if prompt := st.chat_input("자연어로 요청 (예: '10월 29일 오후 3시 영업부 미팅 추가 / 10월 29일 영업부 미팅을 11월 3일 오후 2시로 변경 등')"):
+if prompt := st.chat_input("일정 입력 또는 브리핑을 요청해보세요."):
     # 사용자 메시지 저장
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):

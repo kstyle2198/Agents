@@ -107,7 +107,7 @@ st.markdown(
     </style>
     """,
     unsafe_allow_html=True
-)
+    )
 
 def make_hover_container(title:str, content:str, url:str):
     st.markdown(f"""
@@ -175,7 +175,7 @@ def make_home():
                 components.html(html_code, height=300)
                 # make_hover_container(title="Empty01", content="", url="")
             with col123: 
-                make_hover_container(title="Empty02", content="", url="")
+                make_hover_container(title="Stream Agent", content="LangGraph Streaming Test", url="http://localhost:8501/stream_agent")
 
             col131, col132, col133 = st.columns(3)
             with col131: 

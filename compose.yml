@@ -5,7 +5,8 @@ services:
     ports:
       - 8000:8000
     volumes:
-      - ./llms:/backend/llms
+      - ./backend:/backend # 코드 핫리로드용 (선택)
+      - ./llm:/backend/llm # ✅ LLM 폴더를 볼륨으로 마운트
     networks:
       - agent-net
 

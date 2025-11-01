@@ -13,7 +13,7 @@ logger = logging.getLogger("shcuedule_agent")
 
 from langchain_google_community import CalendarToolkit
 from langchain_google_community.calendar.utils import (
-    build_resource_service,
+    build_resouce_service,  # 라이브러리 3.0.0 버전 업 하면서 resource 오타 낸 듯
     get_google_credentials,
     )
 
@@ -22,7 +22,7 @@ credentials = get_google_credentials(
     scopes=["https://www.googleapis.com/auth/calendar"],
     client_secrets_file="./config/client_secret_39562377782-nge5sdugil9eurkbgn54temjtgq06tbh.apps.googleusercontent.com.json",
 )
-api_resource = build_resource_service(credentials=credentials)
+api_resource = build_resouce_service(credentials=credentials)
 
 def add_meeting_event(calendar_id: str, start_datetime: datetime, summary: str = "회의", all_day: bool = None):
     """일정 추가 함수"""

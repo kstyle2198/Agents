@@ -9,11 +9,10 @@ from langchain_groq import ChatGroq
 import os
 from dotenv import load_dotenv
 load_dotenv(override=True)
-think_model = os.getenv("THINK_MODEL")
-no_think_model = os.getenv("NO_THINK_MODEL")
+NO_THINK_MODEL = os.getenv("NO_THINK_MODEL")
 reranking_model_path = os.getenv("RANK_MODEL_PATH")
 
-llm = ChatGroq(model_name= think_model, temperature=0, max_retries=3, timeout=600)   
+llm = ChatGroq(model_name= NO_THINK_MODEL, temperature=0, max_retries=3, timeout=600)   
 
 
 ### 참고용 단어 변환 및 컬럼 설명 사전 로드
