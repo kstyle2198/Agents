@@ -260,7 +260,7 @@ def process_schedule_request(user_input: str) -> Union[List[ScheduleInfo], None]
     You are an expert schedule assistant. 
     오늘은 {datetime.today()} 입니다.
     시간이 특정되지 않은 경우는 00:00 처리해주세요.T
-    If the year is not mentioned, just assume this year is {datetime.year}.
+    If the year is not mentioned, just assume this year is {datetime.year}. (Asia/Seoul timezone).
 
     Type of Schedules : 미팅(meeting), 연차(full day off), 반차(half day off), 거점(remote office) 
     
@@ -324,7 +324,7 @@ def date_extracter(user_input:str) -> str:
     """사용자의 입력에서 날짜와 시간을 추출"""
     system_prompt = f"""
     당신의 역할은 사용자의 입력에서 날짜 또는 시간과 관련된 단어를 포착후 String 형식으로 추출하는 것입니다.
-    오늘은 {datetime.today()} 입니다.
+    오늘은 {datetime.today()} 입니다. (Asia/Seoul timezone).
     시간이 특정되지 않은 경우는 00:00 처리해주세요.
     
     <User Input>
@@ -363,10 +363,16 @@ def get_schedules(calendar_id: str, user_input:str):
     """특정 날짜의 이벤트를 딕셔너리 형태로 반환"""
 
     date_str = date_extracter(user_input=user_input)
+    print(f">>>date_str: {date_str}")
     logger.info(f"Extacted Date: {date_str}")
-    date = datetime.strptime(date_str, "%Y-%m-%d, %H:%M")
-    time_min = date.isoformat() + "Z"
-    time_max = (date + timedelta(days=1)).isoformat() + "Z"
+    try:
+        date = datetime.strptime(date_str, "%Y-%m-%d %H:%M")
+        time_min = date.isoformat() + "Z"
+        time_max = (date + timedelta(days=1)).isoformat() + "Z"
+    except:
+        date = datetime.strptime(date_str, "%Y-%m-%d, %H:%M")
+        time_min = date.isoformat() + "Z"
+        time_max = (date + timedelta(days=1)).isoformat() + "Z"
 
     events_result = api_resource.events().list(
         calendarId=calendar_id,
@@ -383,6 +389,8 @@ def schedule_briefing(user_input:str, event_dict: dict) -> str:
     """사용자의 일정 브리핑"""
     system_prompt = f"""
     당신은 스마트하고 상냥한 일정관리 비서입니다.
+
+    오늘은 {datetime.today()} 입니다. (Asia/Seoul timezone).
     아래 내용을 참고하여 일정과 시간을 분석후 브리핑해주세요.
     장단기 일정을 구분하여 브리핑 해주세요.
 

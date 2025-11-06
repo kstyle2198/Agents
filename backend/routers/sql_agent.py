@@ -481,9 +481,12 @@ def sql_builder(state):
 
 sql_agent_graph = sql_builder(GraphState)
 
+from uuid import uuid4
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, HTTPException
 from langgraph.errors import GraphRecursionError
+from fastapi.responses import StreamingResponse
+from langchain_core.messages import HumanMessage, AIMessageChunk
 
 sql_agent = APIRouter()
 
@@ -493,7 +496,7 @@ class SqlAgentRequest(BaseModel):
     refined_query_first: str  = ""
     target_tables: List[str]
     attempts: int = 0
-    session_id: str
+    thread_id: str
 
 class SqlAgentResponse(BaseModel):
     """Response model for query refinement"""
@@ -507,75 +510,192 @@ class SqlAgentResponse(BaseModel):
     query_result: str
     history: list
 
-@sql_agent.post("/astream", tags=["SQL_Agents"], operation_id="sql_agent_astream")
-async def app_astream_endpoint(request: SqlAgentRequest):
-    """
-    FastAPI endpoint wrapping the async graph.astream() function.
 
-    Args:
-        request: StreamRequest object containing target_tables, question, etc.
+@sql_agent.post("/astream", tags=["sql_agent"])
+async def chat_stream(input: SqlAgentRequest):
+    return StreamingResponse(
+        generate_chat_responses(
+            question=input.question,
+            target_tables=input.target_tables,
+            attempts=input.attempts,
+            checkpoint_id=input.thread_id
+        ),
+        media_type="text/event-stream"
+        )
 
-    Returns:
-        JSON containing the final output value or error message.
-    """
-    thread_id = f"thread-{request.session_id}"
-    inputs = {
-        "question": request.question,
-        "target_tables": request.target_tables,
-        "attempts": request.attempts,
-        }
-    config = {
-        "recursion_limit": 20,
-        "configurable": {"thread_id": thread_id},
-        }
+def serialise_ai_message_chunk(chunk):
+    if (isinstance(chunk, AIMessageChunk)):
+        return chunk.content
+    else:
+        raise TypeError(
+            f"Object of type {type(chunk).__name__} is not correctly formatted for serialisation"
+        )
+    
+async def generate_chat_responses(question: str, target_tables:list, attempts:int, checkpoint_id: Optional[str] = None):
+    is_new_conversation = checkpoint_id is None
 
-    try:
-        value = None
-        async for output in sql_agent_graph.astream(inputs, config):
-            for key, val in output.items():
-                # print(f">>> Node : {key}")
-                value = val  # 마지막 값만 저장
-            # print("=" * 70)
+    if is_new_conversation:
+        # Generate new checkpoint ID for first message in conversation
+        new_checkpoint_id = str(uuid4())
 
-        if value is None:
-            raise HTTPException(status_code=500, detail="No output generated")
-
-        logger.info(f"final output: \n{value}")
-
-        history = list(sql_agent_graph.get_state_history(config={"configurable": {"thread_id": thread_id}}))
-        logger.info(f"history: \n{history}")
-        return {"final_output": value, "history": history}
-
-    except GraphRecursionError:
-        error_msg = f"=== Recursion Error - {request.recursion_limit} ==="
-        logger.error(error_msg)
-        raise HTTPException(status_code=500, detail=error_msg)
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-class SQLRefineRequest(BaseModel):
-    """Request model for query refinement"""
-    question: str
-
-class SQLRefineResponse(BaseModel):
-    """Response model for query refinement"""
-    refined_query_first: str
-
-@sql_agent.post("/sql_refine", response_model=SQLRefineResponse, tags=["SQL_Agents"], operation_id="sql_refine_question")
-async def refine_question(req: SQLRefineRequest):
-    logger.info(f"Refine the query: {req.question}")
-    try:
-        # 초기 상태 구성
-        state = {
-            "question": req.question,
+        inputs = {
+            "question": question,
+            "target_tables": target_tables,
+            "attempts": attempts,
             }
 
-        # 그래프 실행
-        result = sql_refine_graph.invoke(state)
-        logger.info(f"Refining Query completed. - {result["refined_query_first"]}")
-        return SQLRefineResponse(refined_query_first=result["refined_query_first"])
+        config = {
+            "recursion_limit": 20,
+            "configurable": {
+                "thread_id": new_checkpoint_id
+            }
+        }
 
+        # Initialize with first message
+        events = sql_agent_graph.astream_events(inputs, version="v2", config=config)
+
+        # First send the checkpoint ID
+        yield f"data: {{\"type\": \"checkpoint\", \"checkpoint_id\": \"{new_checkpoint_id}\"}}\n\n"
+    else:
+        inputs = {
+            "question": question,
+            "target_tables": target_tables,
+            "attempts": attempts,
+            }
+        
+        config = {
+            "recursion_limit": 20,
+            "configurable": {
+                "thread_id": checkpoint_id
+            }
+        }
+        # Continue existing conversation
+        events = sql_agent_graph.astream_events(inputs, version="v2", config=config)
+
+    async for event in events:
+        event_type = event["event"]
+
+        if event_type == "on_chat_model_stream":
+            chunk_content = serialise_ai_message_chunk(event["data"]["chunk"])
+            # Escape single quotes and newlines for safe JSON parsing
+            safe_content = chunk_content.replace("'", "\\'").replace("\n", "\\n")
+
+            yield f"data: {{\"type\": \"content\", \"content\": \"{safe_content}\"}}\n\n"
+
+        elif event_type == "on_chat_model_end":
+            # Check if there are tool calls for search
+            tool_calls = event["data"]["output"].tool_calls if hasattr(event["data"]["output"], "tool_calls") else []
+            search_calls = [call for call in tool_calls if call["name"] == "tavily_search"]
+
+            if search_calls:
+                # Signal that a search is starting
+                search_query = search_calls[0]["args"].get("query", "")
+                # Escape quotes and special characters
+                safe_query = search_query.replace('"', '\\"').replace("'", "\\'").replace("\n", "\\n")
+                yield f"data: {{\"type\": \"search_start\", \"query\": \"{safe_query}\"}}\n\n"
+
+        elif event_type == "on_tool_end" and event["name"] == "tavily_search":
+            # Search completed - send results or error
+            output = event["data"]["output"]
+            results = output["results"]
+            logger.info("results_list: ", results)
+
+            # Check if output is a list
+            if isinstance(results, list):
+                # Extract URLs from list of search results
+                urls = []
+                for item in results:
+                    if isinstance(item, dict) and "url" in item:
+                        urls.append(item["url"])
+
+                # Convert URLs to JSON and yield them
+                urls_json = json.dumps(urls)
+                yield f"data: {{\"type\": \"search_results\", \"urls\": {urls_json}}}\n\n"
+
+    # Send an end event
+    yield f"data: {{\"type\": \"end\"}}\n\n"
+
+@sql_agent.get("/sql_threads", tags=["sql_agent"])
+def list_threads(thread_id: str):
+    try:
+        # MemorySaver에 저장된 모든 스레드 목록 조회
+        threads = list(sql_agent_graph.get_state_history(config={"configurable": {"thread_id": thread_id}}))
+        logger.info(f"Retrieved history for thread_id {thread_id}: {threads}")
+        # 임시 응답 (실제 구현에 맞게 수정 필요)
+        return {"threads": threads}
+        
     except Exception as e:
-        logger.error("Query Refinery failed", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+# @sql_agent.post("/astream", tags=["SQL_Agents"], operation_id="sql_agent_astream")
+# async def app_astream_endpoint(request: SqlAgentRequest):
+#     """
+#     FastAPI endpoint wrapping the async graph.astream() function.
+
+#     Args:
+#         request: StreamRequest object containing target_tables, question, etc.
+
+#     Returns:
+#         JSON containing the final output value or error message.
+#     """
+#     thread_id = f"thread-{request.session_id}"
+#     inputs = {
+#         "question": request.question,
+#         "target_tables": request.target_tables,
+#         "attempts": request.attempts,
+#         }
+#     config = {
+#         "recursion_limit": 20,
+#         "configurable": {"thread_id": thread_id},
+#         }
+
+#     try:
+#         value = None
+#         async for output in sql_agent_graph.astream(inputs, config):
+#             for key, val in output.items():
+#                 # print(f">>> Node : {key}")
+#                 value = val  # 마지막 값만 저장
+#             # print("=" * 70)
+
+#         if value is None:
+#             raise HTTPException(status_code=500, detail="No output generated")
+
+#         logger.info(f"final output: \n{value}")
+
+#         history = list(sql_agent_graph.get_state_history(config={"configurable": {"thread_id": thread_id}}))
+#         logger.info(f"history: \n{history}")
+#         return {"final_output": value, "history": history}
+
+#     except GraphRecursionError:
+#         error_msg = f"=== Recursion Error - {request.recursion_limit} ==="
+#         logger.error(error_msg)
+#         raise HTTPException(status_code=500, detail=error_msg)
+
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
+
+# class SQLRefineRequest(BaseModel):
+#     """Request model for query refinement"""
+#     question: str
+
+# class SQLRefineResponse(BaseModel):
+#     """Response model for query refinement"""
+#     refined_query_first: str
+
+# @sql_agent.post("/sql_refine", response_model=SQLRefineResponse, tags=["SQL_Agents"], operation_id="sql_refine_question")
+# async def refine_question(req: SQLRefineRequest):
+#     logger.info(f"Refine the query: {req.question}")
+#     try:
+#         # 초기 상태 구성
+#         state = {
+#             "question": req.question,
+#             }
+
+#         # 그래프 실행
+#         result = sql_refine_graph.invoke(state)
+#         logger.info(f"Refining Query completed. - {result["refined_query_first"]}")
+#         return SQLRefineResponse(refined_query_first=result["refined_query_first"])
+
+#     except Exception as e:
+#         logger.error("Query Refinery failed", exc_info=True)
+#         raise HTTPException(status_code=500, detail=str(e))

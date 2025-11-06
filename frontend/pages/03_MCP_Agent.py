@@ -2,6 +2,7 @@ import streamlit as st
 import asyncio
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
+from langchain.agents import create_agent
 from langchain_groq import ChatGroq
 from langchain_core.messages import AIMessage
 from dotenv import load_dotenv
@@ -68,7 +69,7 @@ model = ChatGroq(
     model="qwen/qwen3-32b", # 사용 가능한 모델로 변경 가능
     temperature=0.5,
     max_tokens=2000,
-)
+    )
 
 # 프롬프트 정의
 prompt_template = """
@@ -81,7 +82,7 @@ Answer in Korean.
 # ReAct 에이전트 생성
 # tools가 비어있지 않은 경우에만 에이전트를 생성합니다.
 if tools:
-    agent = create_react_agent(model=model, tools=tools, prompt=prompt_template)
+    agent = create_agent(model=model, tools=tools, system_prompt=prompt_template)
 
 # 사용자 입력 처리
 if user_query := st.chat_input("질문을 입력하세요..."):
@@ -126,3 +127,9 @@ if user_query := st.chat_input("질문을 입력하세요..."):
 
     # 최종 응답을 채팅 기록에 추가
     st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+if st.button("🗑️ 대화 초기화"):
+    st.session_state.messages = []
+    st.rerun()
+
+

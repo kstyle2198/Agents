@@ -6,7 +6,6 @@ from typing import List, Dict, Optional, Union, TypedDict, Annotated
 from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException
 from langchain_ollama import OllamaEmbeddings
-# from langchain_elasticsearch import ElasticsearchStore
 from langchain_tavily import TavilySearch
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, MessagesState, START, END
@@ -64,13 +63,13 @@ class ElasticsearchVectorStore:
         self.index_names = index_names
         
         # 인덱스 존재 여부 확인
-        existing_indices = self.es_client.indices.get_alias(index="*").keys()
-        self.valid_indices = [i for i in index_names if i in existing_indices]
+        # existing_indices = self.es_client.indices.get_alias(index="*").keys()
+        # self.valid_indices = [i for i in index_names if i in existing_indices]
         
-        if not self.valid_indices:
-            raise ValueError(f"No valid indices found in Elasticsearch: {index_names}")
+        # if not self.valid_indices:
+        #     raise ValueError(f"No valid indices found in Elasticsearch: {index_names}")
         
-        logger.info(f"Initialized ElasticsearchVectorStore with indices: {self.valid_indices}")
+        # logger.info(f"Initialized ElasticsearchVectorStore with indices: {self.valid_indices}")
     
     def similarity_search(self, query: str, k: int = 4, **kwargs) -> List[Dict]:
         """쿼리와 유사한 문서 검색"""
@@ -205,82 +204,38 @@ def load_elastic_vectorstore(index_names: Union[str, List[str]]):
         es_client = get_elastic_client()
 
         # ✅ 인덱스 존재 여부 확인
-        existing_indices = es_client.indices.get_alias(index="*").keys()
-        valid_indices = [i for i in ([index_names] if isinstance(index_names, str) else index_names) 
-                        if i in existing_indices]
+        # existing_indices = es_client.indices.get_alias(index="*").keys()
+        # valid_indices = [i for i in ([index_names] if isinstance(index_names, str) else index_names) 
+        #                 if i in existing_indices]
 
-        if not valid_indices:
-            raise ValueError(f"No valid indices found in Elasticsearch: {index_names}")
+        # if not valid_indices:
+        #     raise ValueError(f"No valid indices found in Elasticsearch: {index_names}")
 
         # ✅ 직접 구현한 ElasticsearchVectorStore 사용
         vector_store = ElasticsearchVectorStore(
-            index_names=valid_indices,
+            index_names=index_names,
             embedding_model=embedding
         )
 
-        logger.info(f"Loaded {len(valid_indices)} existing indices successfully.")
+        logger.info(f"Loaded {len(index_names)} existing indices successfully.")
         return vector_store
 
     except Exception:
         logger.exception("Error occurred during Elastic VectorStore Loading")
         raise
 
-
-# def load_elastic_vectorstore(index_names: Union[str, List[str]]):
-#     logger.info("Load Elastic VectorStore")
-
-#     try:
-#         if isinstance(index_names, str):
-#             index_names = [index_names]
-
-#         embedding = get_ollama_embedding()
-#         es_client = get_elastic_client()
-
-#         # ✅ 인덱스 존재 여부를 사전에 확인 (불필요한 생성 방지)
-#         existing_indices = es_client.indices.get_alias(index="*").keys()
-#         valid_indices = [i for i in index_names if i in existing_indices]
-
-#         if not valid_indices:
-#             raise ValueError(f"No valid indices found in Elasticsearch: {index_names}")
-
-#         # ✅ ElasticsearchStore 초기화 (불필요한 인덱스 생성 방지)
-#         vector_store = ElasticsearchStore(
-#             index_name=valid_indices,
-#             embedding=embedding,
-#             es_connection=es_client
-#         )
-
-#         logger.info(f"Loaded {len(valid_indices)} existing indices successfully.")
-#         return vector_store
-
-#     except Exception:
-#         logger.exception("Error occurred during Elastic VectorStore Loading")
-#         raise
-
-# def load_elastic_vectorstore(index_names: Union[str, List[str]]):
-#     logger.info(f"Load Elastic VectorStore")
-#     try:
-#         # 단일 문자열인 경우 리스트로 변환
-#         if isinstance(index_names, str):
-#             index_names = [index_names]
-        
-#         vector_store = ElasticsearchStore(
-#             index_name=index_names, 
-#             embedding=OllamaEmbeddings(
-#                 base_url="http://localhost:11434", 
-#                 model="bge-m3:latest"
-#             ), 
-#             es_url="http://localhost:9200",
-#             es_user="Kstyle",
-#             es_password="12345",
-#         )
-#         return vector_store
-#     except Exception as e:
-#         logger.exception("Error occurred during Elastic VectorStore Loading")
-#         raise
-
 index_names = ["rule"]
 vector_store = load_elastic_vectorstore(index_names=index_names)
+
+def get_vector_store():
+    if vector_store is None:
+        raise HTTPException(status_code=500, detail="Vector store not initialized")
+    return vector_store
+
+def get_reranker():
+    if reranker is None:
+        raise HTTPException(status_code=500, detail="Reranker not initialized")
+    return reranker
 
 def reranking(query: str, docs: list, min_score: float = 0.5, top_k: int = 3):
     """

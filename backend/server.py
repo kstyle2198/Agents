@@ -8,7 +8,6 @@ from langchain_ollama import OllamaEmbeddings
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
-
 # 로거 설정
 import logging
 from utils.setlogger import setup_logger
@@ -40,7 +39,6 @@ async def health_check():
         logger.exception("Exception during Elasticsearch health check")
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
-
 # Router 등록
 from routers.web import web_search
 from routers.wiki import wiki_search
@@ -61,23 +59,6 @@ app.include_router(arxiv_search)
 app.include_router(generate)
 app.include_router(sql_agent)
 app.include_router(stream_agent)
-
-
-def load_elastic_vectorstore(index_names):
-    logger.info("Initializing Elasticsearch vector store...")
-    if isinstance(index_names, str):
-        index_names = [index_names]
-
-    return ElasticsearchStore(
-        index_name=index_names,
-        embedding=OllamaEmbeddings(
-            base_url="http://localhost:11434",
-            model="bge-m3:latest"
-        ),
-        es_url="http://localhost:9200",
-        es_user=os.getenv("ES_USER", "Kstyle"),
-        es_password=os.getenv("ES_PASSWORD", "12345"),
-    )
 
 # MCP 서버 생성
 from fastapi_mcp import FastApiMCP

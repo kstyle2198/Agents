@@ -5,6 +5,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 st.set_page_config(page_title="UI", page_icon="🐬", layout="wide", initial_sidebar_state="collapsed")
 
+from utils.style import HOVERING_EFFECT
 # ==== Background Image ====
 def get_base64_of_image(image_file):
     """이미지 파일을 Base64로 인코딩하여 문자열로 반환합니다."""
@@ -66,53 +67,12 @@ else:
     st.warning(f"배경 이미지 파일을 찾을 수 없습니다: {image_path}")
 
 # Inject CSS style for Hover effect
-st.markdown(
-    """
-    <style>
-    /* 링크 기본 밑줄 제거 + 텍스트 색상 상속 */
-    .clickable-box-wrapper {
-        text-decoration: none !important;
-        color: inherit;
-    }
+st.markdown(HOVERING_EFFECT, unsafe_allow_html=True)
 
-    /* hover-box에 padding 적용 */
-    .hover-box {
-        padding: 20px;
-    }
-
-    /* 텍스트 기본 색상 회색 */
-    .hover-box h1, .hover-box p {
-        color: #888888;
-        transition: color 0.3s ease;
-    }
-
-    /* Hover 시 텍스트 색상 파란색 */
-    .st-emotion-cache-1vo6xi6:hover .hover-box h1,
-    .st-emotion-cache-1vo6xi6:hover .hover-box p {
-        color: #007bff;
-    }
-
-    /* container hover 효과 */
-    .st-emotion-cache-1vo6xi6 {
-        transition: all 0.35s ease;
-        border-radius: 16px;
-    }
-    .st-emotion-cache-1vo6xi6:hover {
-        background: rgba(255, 255, 255, 0.25);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-        backdrop-filter: blur(12px) saturate(150%);
-        -webkit-backdrop-filter: blur(12px) saturate(150%);
-        transform: translateY(-6px);
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-    )
-
-def make_hover_container(title:str, content:str, url:str):
+def make_hover_container(title:str, content:str, url:str, height:str = "auto"):
     st.markdown(f"""
             <a href="{url}" target="_blank" class="clickable-box-wrapper">
-            <div class="hover-box">
+            <div class="hover-box" style="height: {height};">
                 <h1>{title}</h1>
                 <p>{content}</p></div>
             </a>
@@ -162,28 +122,27 @@ def make_home():
             col111, col112, col113 = st.columns(3)
 
             with col111: 
-                make_hover_container(title="Schedule Agent", content="Google Calendar Managing Agent", url="http://localhost:8501/Schedule_Agent")
+                make_hover_container(title="Schedule Agent", content="Google Calendar Managing Agent", url="http://localhost:8501/Schedule_Agent", height="200px")
             with col112: 
-                make_hover_container(title="Rag Agent", content="Based on ElasticSearch Vector DB", url="http://localhost:8501/RagAgent_Multi")
+                make_hover_container(title="Rag Agent", content="Based on ElasticSearch Vector DB", url="http://localhost:8501/RagAgent_Multi", height="200px")
             with col113: 
-                make_hover_container(title="MCP Agent", content="Based on MCP Tools(Web, Wiki, Arxiv)", url="http://localhost:8501/MCP_Agent")
+                make_hover_container(title="MCP Agent", content="Based on MCP Tools(Web, Wiki, Arxiv)", url="http://localhost:8501/MCP_Agent", height="200px")
             
             col121, col122, col123 = st.columns(3)
             with col121: 
-                make_hover_container(title="SQL Agent", content="Based on Postgres RDB", url="http://localhost:8501/sql_agent")
+                make_hover_container(title="SQL Agent", content="Based on Postgres RDB", url="http://localhost:8501/sql_agent", height="200px")
             with col122: 
                 components.html(html_code, height=300)
-                # make_hover_container(title="Empty01", content="", url="")
             with col123: 
-                make_hover_container(title="Stream Agent", content="LangGraph Streaming Test", url="http://localhost:8501/stream_agent")
+                make_hover_container(title="Streaming Test", content="LangGraph Streaming Test", url="http://localhost:8501/stream_agent", height="200px")
 
             col131, col132, col133 = st.columns(3)
             with col131: 
-                make_hover_container(title="Empty03", content="", url="")
+                make_hover_container(title="Empty03", content="", url="", height="200px")
             with col132: 
-                make_hover_container(title="Empty04", content="", url="")
+                make_hover_container(title="Empty04", content="", url="", height="200px")
             with col133: 
-                make_hover_container(title="Empty05", content="", url="")
+                make_hover_container(title="Empty05", content="", url="", height="200px")
 
         with col13: pass 
 
