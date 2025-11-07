@@ -43,20 +43,14 @@ async def health_check():
 from routers.web import web_search
 from routers.wiki import wiki_search
 from routers.arxiv import arxiv_search
-# from routers.hybrid_search import hybrid_search
-from routers.refine import refine
-from routers.generate import generate
 from routers.schedule import schedule
 from routers.sql_agent import sql_agent
 from routers.stream_agent import stream_agent
 
 app.include_router(schedule)
-app.include_router(refine)
-# app.include_router(hybrid_search)
 app.include_router(web_search)
 app.include_router(wiki_search)
 app.include_router(arxiv_search)
-app.include_router(generate)
 app.include_router(sql_agent)
 app.include_router(stream_agent)
 
@@ -74,7 +68,6 @@ mcp.mount_sse(app, mount_path="/mcp")
 
 if __name__ == "__main__":
     
-
     import uvicorn
     logger.info("Starting FastAPI server...")
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True, workers=1)

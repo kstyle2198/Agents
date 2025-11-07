@@ -14,6 +14,8 @@ logger = logging.getLogger("shcuedule_agent")
 from langchain_google_community import CalendarToolkit
 from langchain_google_community.calendar.utils import (
     build_resouce_service,  # 라이브러리 3.0.0 버전 업 하면서 resource 오타 낸 듯
+    )
+from langchain_google_community._utils import (
     get_google_credentials,
     )
 
@@ -351,19 +353,16 @@ def date_extracter(user_input:str) -> str:
             max_tokens=1000
         )
         res = response.choices[0].message.content        
-        # print(json_str)
-    
         return res
 
     except Exception as e:
-        print(f"Error processing request: {str(e)}")
+        logger.error(f"Error processing request: {str(e)}")
         return None
     
 def get_schedules(calendar_id: str, user_input:str):
     """특정 날짜의 이벤트를 딕셔너리 형태로 반환"""
 
     date_str = date_extracter(user_input=user_input)
-    print(f">>>date_str: {date_str}")
     logger.info(f"Extacted Date: {date_str}")
     try:
         date = datetime.strptime(date_str, "%Y-%m-%d %H:%M")
@@ -417,7 +416,7 @@ def schedule_briefing(user_input:str, event_dict: dict) -> str:
         return res
 
     except Exception as e:
-        print(f"Error processing request: {str(e)}")
+        logger.error(f"Error processing request: {str(e)}")
         return None
     
 

@@ -40,25 +40,6 @@ from fastapi import APIRouter, HTTPException
 schedule = APIRouter(prefix="/schedule")
 
 # ==== LangGraph 상태 모델 ====
-# class ScheduleState(BaseModel):
-#     user_input: str
-#     route: Literal["command", "question", None]
-#     my_schedule: str
-#     briefing: str   # 브리핑 등 질의 응답
-#     calendar_id: str
-#     job_type: Optional[str] = None
-#     old_time: Optional[datetime] = None
-#     old_info: Optional[str] = None
-#     new_time: Optional[datetime] = None
-#     new_info: Optional[str] = None
-#     del_time: Optional[datetime] = None
-#     del_info: Optional[str] = None
-#     events: Optional[dict] = None
-#     event_list: Optional[list] = None
-#     event_id: Optional[str] = None
-#     is_new: Optional[bool] = None
-#     result: Optional[str] = None
-
 from typing import Any, List, Dict
 class ScheduleState(BaseModel):
     user_input: str = ""

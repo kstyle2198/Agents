@@ -10,8 +10,10 @@ from dotenv import load_dotenv
 # .env 파일에서 환경 변수 로드
 load_dotenv(override=True)
 
-# --- 캐싱을 사용한 비동기 함수 설정 ---
+from utils.setlogger import setup_logger
+logger = setup_logger(f"{__name__}")
 
+# --- 캐싱을 사용한 비동기 함수 설정 ---
 @st.cache_resource(show_spinner="Connecting to Tool-Server...")
 def get_tools():
     """
@@ -33,7 +35,7 @@ def get_tools():
     try:
         return asyncio.run(fetch_tools())
     except Exception as e:
-        st.error(f"Failed to connect to the tool server: {e}")
+        logger.error(f"Failed to connect to the tool server: {e}")
         return []
 
 # --- Streamlit UI 설정 ---
@@ -67,16 +69,18 @@ for message in st.session_state.messages:
 # LLM 정의
 model = ChatGroq(
     model="qwen/qwen3-32b", # 사용 가능한 모델로 변경 가능
-    temperature=0.5,
+    temperature=0.1,
     max_tokens=2000,
     )
 
 # 프롬프트 정의
 prompt_template = """
-You are the Smart AI Assistant in a company.
-Based on the result of tool calling, Generate a consice and logical answer.
-and if there is no relevant infomation in the tool calling result, Just say 'I don't know'.
-Answer in Korean.
+당신은 스마트한 AI Assistant입니다.
+당신에게는 세가지의 Tool이 주어집니다. (Wiki Search, Web Search, Arxiv Search)
+Tool Calling의 결과에 근거하여 간결하고 논리적인 답변을 생성해주세요.
+답변 생성시, 관련 근거 내용의 출처도 함께 제공해주세요.
+만약 Tool Calling 결과에 관련 정보가 없다면, '모르겠습니다'라고 답변해주세요.
+한국어로 답변해주세요.
 """
 
 # ReAct 에이전트 생성
@@ -122,11 +126,17 @@ if user_query := st.chat_input("질문을 입력하세요..."):
 
         except Exception as e:
             st.error(f"An error occurred: {e}")
+            logger.error(f"An error occurred: {e}")
             full_response = "죄송합니다. 답변을 생성하는 동안 오류가 발생했습니다."
             response_placeholder.markdown(full_response)
 
     # 최종 응답을 채팅 기록에 추가
     st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+if st.session_state.messages:
+    with st.expander("🧾 대화 기록 보기"):
+        for msg in st.session_state.messages:
+            st.info(msg)
 
 if st.button("🗑️ 대화 초기화"):
     st.session_state.messages = []

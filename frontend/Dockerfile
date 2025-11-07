@@ -7,14 +7,9 @@ WORKDIR frontend
 # Copy the requirements.txt file (assuming you have one for your dependencies)
 COPY requirements.txt .
 
-# Install the dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the rest of the application code to the container
 COPY . ./
 
-# Expose the port that Streamlit runs on
-EXPOSE 8501
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Set the environment variables for Streamlit
 ENV PYTHONUNBUFFERED=1

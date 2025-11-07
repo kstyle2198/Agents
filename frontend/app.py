@@ -124,25 +124,25 @@ def make_home():
             with col111: 
                 make_hover_container(title="Schedule Agent", content="Google Calendar Managing Agent", url="http://localhost:8501/Schedule_Agent", height="200px")
             with col112: 
-                make_hover_container(title="Rag Agent", content="Based on ElasticSearch Vector DB", url="http://localhost:8501/RagAgent_Multi", height="200px")
-            with col113: 
                 make_hover_container(title="MCP Agent", content="Based on MCP Tools(Web, Wiki, Arxiv)", url="http://localhost:8501/MCP_Agent", height="200px")
+            with col113: 
+                make_hover_container(title="SQL Agent", content="Based on Postgres RDB", url="http://localhost:8501/sql_agent", height="200px")
             
             col121, col122, col123 = st.columns(3)
             with col121: 
-                make_hover_container(title="SQL Agent", content="Based on Postgres RDB", url="http://localhost:8501/sql_agent", height="200px")
+                make_hover_container(title="Empty01", content="", url="", height="200px")
             with col122: 
                 components.html(html_code, height=300)
             with col123: 
-                make_hover_container(title="Streaming Test", content="LangGraph Streaming Test", url="http://localhost:8501/stream_agent", height="200px")
+                make_hover_container(title="Empty02", content="", url="", height="200px")
 
             col131, col132, col133 = st.columns(3)
             with col131: 
                 make_hover_container(title="Empty03", content="", url="", height="200px")
             with col132: 
-                make_hover_container(title="Empty04", content="", url="", height="200px")
+                make_hover_container(title="Streaming Test", content="LangGraph Streaming Test", url="http://localhost:8501/stream_agent", height="200px")
             with col133: 
-                make_hover_container(title="Empty05", content="", url="", height="200px")
+                make_hover_container(title="Empty04", content="", url="", height="200px")
 
         with col13: pass 
 

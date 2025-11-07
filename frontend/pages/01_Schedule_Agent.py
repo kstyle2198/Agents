@@ -64,8 +64,7 @@ if prompt := st.chat_input("일정 입력 또는 브리핑을 요청해보세요
                     time.sleep(0.3)  # 스트리밍 느낌
 
                 # 최종 결과
-                chat_text = f"**결과:** {data.get('result', '결과 없음')}"
-                # chat_text += f"**결과:** {data.get('result', '결과 없음')}"
+                chat_text = f"{data.get('result', '결과 없음')}"
                 message_placeholder.markdown(chat_text)
 
                 # 대화 기록 저장
