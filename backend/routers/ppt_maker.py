@@ -33,7 +33,7 @@ def extract_subtopics_and_key_points(text: str) -> List[dict]:
             SystemMessage(content=(
                 "당신은 텍스트 분석 전문가입니다. "
                 "주어진 텍스트를 분석하여 3~5개의 주요 서브 주제를 식별하고, "
-                "각 서브 주제별로 5~7개의 핵심 문장을 추출하세요. "
+                "각 서브 주제별로 4~5개의 핵심 문장으로 요약 정리해주세요. "
                 "응답은 다음 JSON 형식으로만 출력하세요:\n"
                 "[\n"
                 "  {\n"

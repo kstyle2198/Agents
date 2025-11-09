@@ -6,6 +6,8 @@ from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 load_dotenv(override=True)
+model_name = os.getenv("NO_THINK_MODEL")
+
 
 # 로거 설정
 import logging
@@ -19,75 +21,89 @@ from langchain_google_community._utils import (
     get_google_credentials,
     )
 
-credentials = get_google_credentials(
-    token_file="./config/token.json",
-    scopes=["https://www.googleapis.com/auth/calendar"],
-    client_secrets_file="./config/client_secret_39562377782-nge5sdugil9eurkbgn54temjtgq06tbh.apps.googleusercontent.com.json",
-)
-api_resource = build_resouce_service(credentials=credentials)
+
+def make_api_resource(secret_filepath:str="./keys/secret.json", token_filepath:str="./keys/token.json"):
+    try:
+        credentials = get_google_credentials(
+            token_file=token_filepath,
+            scopes=["https://www.googleapis.com/auth/calendar"],
+            client_secrets_file=secret_filepath,
+        )
+        api_resource = build_resouce_service(credentials=credentials)
+        return api_resource
+    except Exception as e:
+        logger.error("ERROR in make_api_resource")
 
 def add_meeting_event(calendar_id: str, start_datetime: datetime, summary: str = "회의", all_day: bool = None):
     """일정 추가 함수"""
-    # all_day 값이 주어지지 않으면 start_datetime의 시간 여부로 자동 판정
-    if all_day is None:
-        all_day = (start_datetime.time() == datetime.min.time())  # 00:00:00이면 하루 종일로 간주
-    logger.info(all_day)
+    try:
+        # all_day 값이 주어지지 않으면 start_datetime의 시간 여부로 자동 판정
+        if all_day is None:
+            all_day = (start_datetime.time() == datetime.min.time())  # 00:00:00이면 하루 종일로 간주
+        logger.info(all_day)
 
-    if all_day:
-        logger.info("하루 종일 일정")
-        event = {
-            "summary": summary,
-            "start": {
-                "date": start_datetime.date().isoformat(),
-                "timeZone": "Asia/Seoul",  # ✅ 타임존 추가
-            },
-            "end": {
-                "date": (start_datetime.date() + timedelta(days=1)).isoformat(),
-                "timeZone": "Asia/Seoul",  # ✅ 타임존 추가
-            },
-        }
-    else:
-        logger.info("시간 지정 일정")
-        end_datetime = start_datetime + timedelta(hours=1)
-        event = {
-            "summary": summary,
-            "start": {
-                "dateTime": start_datetime.isoformat(),
-                "timeZone": "Asia/Seoul",
-            },
-            "end": {
-                "dateTime": end_datetime.isoformat(),
-                "timeZone": "Asia/Seoul",
-            },
-        }
-    created_event = api_resource.events().insert(calendarId=calendar_id, body=event).execute()
-    logger.info(f"일정이 추가되었습니다: {created_event.get('htmlLink')}")
+        if all_day:
+            logger.info("하루 종일 일정")
+            event = {
+                "summary": summary,
+                "start": {
+                    "date": start_datetime.date().isoformat(),
+                    "timeZone": "Asia/Seoul",  # ✅ 타임존 추가
+                },
+                "end": {
+                    "date": (start_datetime.date() + timedelta(days=1)).isoformat(),
+                    "timeZone": "Asia/Seoul",  # ✅ 타임존 추가
+                },
+            }
+        else:
+            logger.info("시간 지정 일정")
+            end_datetime = start_datetime + timedelta(hours=1)
+            event = {
+                "summary": summary,
+                "start": {
+                    "dateTime": start_datetime.isoformat(),
+                    "timeZone": "Asia/Seoul",
+                },
+                "end": {
+                    "dateTime": end_datetime.isoformat(),
+                    "timeZone": "Asia/Seoul",
+                },
+            }
+        api_resource = make_api_resource()
+        created_event = api_resource.events().insert(calendarId=calendar_id, body=event).execute()
+        logger.info(f"일정이 추가되었습니다: {created_event.get('htmlLink')}")
+    except Exception as e:
+        logger.error(f"ERROR in add_meeting_event - {e}")
 
 def event_dict(calendar_id: str, date: datetime):
     """특정 날짜의 이벤트를 딕셔너리 형태로 반환"""
     time_min = date.isoformat() + "Z"
     time_max = (date + timedelta(days=1)).isoformat() + "Z"
+    try:
+        api_resource = make_api_resource()
+        events_result = api_resource.events().list(
+            calendarId=calendar_id,
+            timeMin=time_min,
+            timeMax=time_max,
+            singleEvents=True,
+            orderBy="startTime"
+        ).execute()
+        
+        events = events_result.get("items", [])
+        results  = dict()
+        for event in events:
+            results[event.get('summary')] = event.get('id')
 
-    events_result = api_resource.events().list(
-        calendarId=calendar_id,
-        timeMin=time_min,
-        timeMax=time_max,
-        singleEvents=True,
-        orderBy="startTime"
-    ).execute()
-    
-    events = events_result.get("items", [])
-    results  = dict()
-    for event in events:
-        results[event.get('summary')] = event.get('id')
-
-    return results
+        return results
+    except Exception as e:
+        logger.error(f"ERROR in event_dict - {e}")
 
 def update_event(calendar_id: str, event_id: str, start_datetime: datetime, summary: str = "회의", all_day: bool = None):
     """이벤트 업데이트 함수"""
 
     try:
         # 기존 이벤트 가져오기
+        api_resource = make_api_resource()
         event = api_resource.events().get(calendarId=calendar_id, eventId=event_id).execute()
 
         # all_day 값 자동 판정 (입력 안하면 기존 설정 유지)
@@ -131,6 +147,7 @@ def update_event(calendar_id: str, event_id: str, start_datetime: datetime, summ
 def delete_event(calendar_id: str, event_id: str):
     """이벤트 삭제 함수"""
     try:
+        api_resource = make_api_resource()
         api_resource.events().delete(calendarId=calendar_id, eventId=event_id).execute()
         logger.info(f"이벤트(ID: {event_id})가 삭제되었습니다.")
     except Exception as e:
@@ -180,7 +197,7 @@ def get_event_id(user_input:str, event_dict: dict) -> str:
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",  # JSON 출력에 더 적합한 모델
+            model=model_name,  # JSON 출력에 더 적합한 모델
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_input}
@@ -233,7 +250,7 @@ def is_new_event(user_input: str, event_list: List[str]) -> bool:
 
     try:
         response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
+            model=model_name,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_input}
@@ -260,7 +277,7 @@ def process_schedule_request(user_input: str) -> Union[List[ScheduleInfo], None]
     logger.info(f">>>current_date: {current_date}")
     system_prompt = f"""
     You are an expert schedule assistant. 
-    오늘은 {datetime.today()} 입니다.
+    오늘은 {datetime.today()} 입니다 (Asia/Seoul timezone).
     시간이 특정되지 않은 경우는 00:00 처리해주세요.T
     If the year is not mentioned, just assume this year is {datetime.year}. (Asia/Seoul timezone).
 
@@ -283,7 +300,7 @@ def process_schedule_request(user_input: str) -> Union[List[ScheduleInfo], None]
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",  # JSON 출력에 더 적합한 모델
+            model=model_name,  # JSON 출력에 더 적합한 모델
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_input}
@@ -344,7 +361,7 @@ def date_extracter(user_input:str) -> str:
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",  # JSON 출력에 더 적합한 모델
+            model=model_name,  # JSON 출력에 더 적합한 모델
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_input}
@@ -372,7 +389,8 @@ def get_schedules(calendar_id: str, user_input:str):
         date = datetime.strptime(date_str, "%Y-%m-%d, %H:%M")
         time_min = date.isoformat() + "Z"
         time_max = (date + timedelta(days=1)).isoformat() + "Z"
-
+        
+    api_resource = make_api_resource()
     events_result = api_resource.events().list(
         calendarId=calendar_id,
         timeMin=time_min,
@@ -404,7 +422,7 @@ def schedule_briefing(user_input:str, event_dict: dict) -> str:
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",  # JSON 출력에 더 적합한 모델
+            model=model_name,  # JSON 출력에 더 적합한 모델
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_input}

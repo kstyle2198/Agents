@@ -7,15 +7,15 @@ from datetime import datetime, timedelta
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
 load_dotenv(override=True)
+model_name = os.getenv("NO_THINK_MODEL")
 
 # 로거 설정
-import logging
 from utils.setlogger import setup_logger
-logger = setup_logger(f"{__name__}", level=logging.DEBUG)
+logger = setup_logger(f"{__name__}")
 
-llm = ChatGroq(temperature=0, model_name= "llama-3.3-70b-versatile") 
+llm = ChatGroq(temperature=0, model_name= model_name) 
 
-from utils.schedule_helper import (
+from utils.schedule_helper_v2 import (
     add_meeting_event,
     event_dict,
     delete_event,
@@ -24,16 +24,16 @@ from utils.schedule_helper import (
     process_schedule_request,
     get_schedules,
     schedule_briefing
-)
+    )
 
-
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional, Literal, TypedDict
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 import asyncio
+import shutil
 
 # ==== FastAPI 초기화 ====
 from fastapi import APIRouter, HTTPException
@@ -66,8 +66,10 @@ async def router_node(state: ScheduleState) -> ScheduleState:
     """입력을 지시형 / 질문형으로 라우팅"""
     text = str(state.user_input)
     prompt = f"""
-    아래 문장이 '지시형'(추가, 삭제, 변경 등)인지 '질문형'(브리핑, 설명, why/how/무엇 등)인지 판단하세요.
+    아래 문장이 '지시형'(추가, 삭제, 변경 등)인지 '질문형'(브리핑, 설명, 요약 등)인지 판단하세요.
+
     문장: "{text}"
+
     답변은 command 또는 question 중 하나로만 하세요.
     """
     route = llm.invoke(prompt).content.strip().lower()
@@ -242,5 +244,68 @@ async def schedule_handler(req: ScheduleRequest):
         "history": history
     }
 
+# 접근할 API 범위 지정 (예: Google Calendar)
+SCOPES = ['https://www.googleapis.com/auth/calendar']
+
+def generate_oauth_token(secret_file_path):
+    """OAuth 토큰 생성"""
+    creds = None
+    token_path = './keys/token.json'
+    
+    # OAuth 인증 시작
+    try:
+        logger.info("🔐 OAuth 인증을 시작합니다...")
+        
+        # Streamlit 환경에서의 OAuth 설정
+        flow = InstalledAppFlow.from_client_secrets_file(
+            str(secret_file_path), 
+            SCOPES
+        )
+        
+        # OAuth 인증 실행
+        creds = flow.run_local_server(
+            port=0,
+            success_message='인증이 완료되었습니다! 이 창을 닫아주세요.',
+            open_browser=True
+        )
+        
+        # 인증 결과 저장
+        with open(token_path, 'w') as token:
+            token.write(creds.to_json())
+        logger.info("✅ token.json 파일이 성공적으로 생성되었습니다!")
+        return True
+    except Exception as e:
+        logger.error(f"OAuth 인증 중 오류 발생: {e}")
+        return False
+
+@schedule.post("/upload_keys", tags=["Scheduler"])
+async def upload_keys(secret_file: UploadFile = File(...)):
+    """
+    secret.json 파일 업로드 및 OAuth 인증 처리
+    """
+    # keys 디렉토리 생성
+    os.makedirs("./keys", exist_ok=True)
+    secret_path = "./keys/secret.json"
+
+    try:
+        # 파일 저장
+        with open(secret_path, "wb") as buffer:
+            content = await secret_file.read()
+            buffer.write(content)
+
+        # OAuth 토큰 생성
+        success = generate_oauth_token(secret_path)
+        
+        if success:
+            return {
+                "message": "Files uploaded and API resource created successfully",
+                "status": "success"
+            }
+        else:
+            raise HTTPException(status_code=500, detail="OAuth 인증 실패")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+    
 if __name__ == "__main__":
     pass
