@@ -130,7 +130,7 @@ def make_home():
             
             col121, col122, col123 = st.columns(3)
             with col121: 
-                make_hover_container(title="Empty01", content="", url="", height="200px")
+                make_hover_container(title="PPTX Maker", content="Convert Texts into PPTX Draft", url="http://localhost:8501/pptx_maker", height="200px")
             with col122: 
                 components.html(html_code, height=300)
             with col123: 

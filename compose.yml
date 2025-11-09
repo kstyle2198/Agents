@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   backend:
     build:
@@ -10,8 +8,12 @@ services:
     command: [ "python", "./server.py" ]
     ports:
       - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://admin:admin123@postgres/mydb
     volumes:
       - ./backend:/backend
+    networks:
+      - app_network
     restart: always
 
   frontend:
@@ -26,8 +28,15 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - STREAMLIT_SERVER_HEADLESS=true
+      - BASE_URL=http://backend:8000
     volumes:
       - ./frontend:/frontend
     depends_on:
       - backend
+    networks:
+      - app_network
     restart: always
+
+networks:
+  app_network:
+    driver: bridge

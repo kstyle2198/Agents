@@ -28,7 +28,7 @@ def get_ref_info(excel_path:str):
     desc_dict = dict(zip(df_desc['description'], df_desc['column_name']))
     return word_change, desc_dict
 
-word_change, desc_dict = get_ref_info(excel_path="./data/ref_ship_fuel.xlsx")
+word_change, desc_dict = get_ref_info(excel_path="./data/schema_desc.xlsx")
 word_change, desc_dict
 
 
@@ -205,6 +205,7 @@ def convert_nl_to_sql(state: GraphState, config: RunnableConfig):
 
 Provide only the SQL query without any explanations. 
 Alias columns appropriately to match the expected keys in the result.
+Apply appropriate type castings when needed.
 
 """
     convert_prompt = ChatPromptTemplate.from_messages(
@@ -288,8 +289,8 @@ def generate_human_readable_answer(state: GraphState):
     sql_error = state.get("sql_error", False)
 
     system = f"""
-    당신은 조선소의 경영 전략을 수립하는 기획 전문가 입니다.
-    아래 질문과 참고 정보를 활용하여 최고경영 임원에게 제공할 조선소 현황에 대한 보고서를 작성해주세요.
+    당신은 경영 전략을 수립하는 기획 전문가 입니다.
+    아래 질문과 참고 정보를 활용하여 최고경영 임원에게 제공할 경영분석 보고서를 작성해주세요.
     반드시 참고 정보에 근거하여 답변을 생성해주세요.
     """
 

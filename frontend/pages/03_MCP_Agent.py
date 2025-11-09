@@ -6,9 +6,11 @@ from langchain.agents import create_agent
 from langchain_groq import ChatGroq
 from langchain_core.messages import AIMessage
 from dotenv import load_dotenv
-
+import os
 # .env 파일에서 환경 변수 로드
 load_dotenv(override=True)
+
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 
 from utils.setlogger import setup_logger
 logger = setup_logger(f"{__name__}")
@@ -22,7 +24,7 @@ def get_tools():
     """
     server_config = {
         "search": {
-            "url": "http://localhost:8000/mcp",
+            "url": f"{BASE_URL}/mcp",
             "transport": "sse",
         },
     }

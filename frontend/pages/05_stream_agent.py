@@ -4,8 +4,8 @@ import uuid
 import requests
 import streamlit as st
 import httpx
-
-API_URL = "http://localhost:8000"
+import os
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 
 st.set_page_config(page_title="UI", page_icon="🐬", layout="wide", initial_sidebar_state="collapsed")
 st.title("💬 Streaming Chat Interface")
@@ -58,7 +58,7 @@ if prompt := st.chat_input("메시지를 입력하세요..."):
         def stream_from_api():
             with httpx.stream(
                 "POST",
-                f"{API_URL}/chat",
+                f"{BASE_URL}/chat",
                 json={"query": prompt, "thread_id": st.session_state.thread_id},
                 timeout=60.0,
                 ) as response:
@@ -102,7 +102,7 @@ else:
 
 # --- Agent 작업 과정 및 Chat History ---
 if st.session_state.thread_id:
-    response = requests.get(f"{API_URL}/threads", params={"thread_id": st.session_state.thread_id})
+    response = requests.get(f"{BASE_URL}/threads", params={"thread_id": st.session_state.thread_id})
     if response.status_code == 200:
         threads_history = response.json().get("threads", [])
         st.session_state.threads = list(reversed(threads_history))

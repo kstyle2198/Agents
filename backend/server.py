@@ -3,7 +3,6 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from elasticsearch import Elasticsearch
-from langchain_ollama import OllamaEmbeddings
 
 from dotenv import load_dotenv
 load_dotenv(override=True)
@@ -46,6 +45,7 @@ from routers.arxiv import arxiv_search
 from routers.schedule import schedule
 from routers.sql_agent import sql_agent
 from routers.stream_agent import stream_agent
+from routers.ppt_maker import pptx_maker
 
 app.include_router(schedule)
 app.include_router(web_search)
@@ -53,6 +53,7 @@ app.include_router(wiki_search)
 app.include_router(arxiv_search)
 app.include_router(sql_agent)
 app.include_router(stream_agent)
+app.include_router(pptx_maker)
 
 # MCP 서버 생성
 from fastapi_mcp import FastApiMCP

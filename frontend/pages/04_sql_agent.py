@@ -4,8 +4,9 @@ import uuid
 import requests
 import streamlit as st
 import httpx
+import os
 
-API_URL = "http://localhost:8000"
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 
 st.set_page_config(page_title="UI", page_icon="🐬", layout="wide", initial_sidebar_state="collapsed")
 st.title("SQL Agent")
@@ -20,7 +21,7 @@ if "thread_id" not in st.session_state:
 if "threads" not in st.session_state:
     st.session_state.threads = []
 
-AVAILABLE_TABLES = ["ship_fuel_efficiency"]
+AVAILABLE_TABLES = ["sales"]
 # --- 사이드바 ---
 with st.sidebar:
     st.header("⚙️ 설정")
@@ -68,7 +69,7 @@ if prompt := st.chat_input("메시지를 입력하세요..."):
         def stream_from_api(request_data):
             with httpx.stream(
                 "POST",
-                f"{API_URL}/astream",
+                f"{BASE_URL}/astream",
                 json=request_data,
                 timeout=60.0,
                 ) as response:
@@ -99,7 +100,7 @@ if prompt := st.chat_input("메시지를 입력하세요..."):
 
 # --- Agent 작업 과정 및 Chat History ---
 if st.session_state.thread_id:
-    response = requests.get(f"{API_URL}/sql_threads", params={"thread_id": st.session_state.thread_id})
+    response = requests.get(f"{BASE_URL}/sql_threads", params={"thread_id": st.session_state.thread_id})
     if response.status_code == 200:
         threads_history = response.json().get("threads", [])
         st.session_state.threads = list(reversed(threads_history))

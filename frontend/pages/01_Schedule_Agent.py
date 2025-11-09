@@ -2,13 +2,15 @@ import streamlit as st
 import requests
 import json
 import time
+import os
 
 # ==== 페이지 설정 ====
 st.set_page_config(page_title="UI", page_icon="🐬", layout="wide", initial_sidebar_state="collapsed")
 st.title("Schedule Agent")
 st.markdown("---")
 
-API_URL = "http://localhost:8000/schedule"
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+API_URL = f"{BASE_URL}/schedule"
 CALENDAR_ID = "jongbaekim0710@gmail.com"
 
 # ==== 채팅 기록 초기화 ====
