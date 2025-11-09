@@ -12,6 +12,9 @@ from langgraph.graph import StateGraph, END
 from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage
 
+from utils.setlogger import setup_logger
+logger = setup_logger(f"{__name__}")
+
 from dotenv import load_dotenv
 load_dotenv()
 think_model = os.getenv("NO_THINK_MODEL")
@@ -53,9 +56,11 @@ def extract_subtopics_and_key_points(text: str) -> List[dict]:
         import json
         try:
             subtopics_data = json.loads(response.content)
+            logger.info(subtopics_data)
             return subtopics_data
         except json.JSONDecodeError:
             # JSON 파싱 실패 시 기본 구조 반환
+            logger.error("서브 주제 및 문장 추출 에러")
             return [
                 {
                     "subtopic": "주요 내용",

@@ -150,6 +150,8 @@ def make_home():
 
 if __name__ == "__main__":
     
+    with st.sidebar:
+        st.info("[FastAPI Doc 이동하기](http://localhost:8000/docs)")
 
     make_home()
 
