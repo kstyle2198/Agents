@@ -1,9 +1,10 @@
 # Agents
 ### Playground for My Personal Agents
 
-- Schedule Agent
-- MCP Agent
-- SQL Agent
+- Schedule Agent (with Google Calendar)
+- Rag Agent (based on ElasticSearch)
+- MCP Agent (using tavily, wiki, arxiv)
+- SQL Agent (based on Postgres)
 - PPTX Maker
 - Streaming Test
 
@@ -16,4 +17,5 @@
 chmod +x run_app.sh
 # 실행 명령
 ./run_app.sh
+
 ```
