@@ -165,7 +165,6 @@ def check_relevance(state: GraphState, config: RunnableConfig):
     target_tables = state["target_tables"]
     question = state["refined_query_first"]
     schema = get_database_schema(target_tables = target_tables)
-    # print(f"Checking relevance of the question: {question}")
     system = """You are an assistant that determines whether a given question is related to the following database schema.
 
 Schema:
@@ -627,76 +626,3 @@ def list_threads(thread_id: str):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-# @sql_agent.post("/astream", tags=["SQL_Agents"], operation_id="sql_agent_astream")
-# async def app_astream_endpoint(request: SqlAgentRequest):
-#     """
-#     FastAPI endpoint wrapping the async graph.astream() function.
-
-#     Args:
-#         request: StreamRequest object containing target_tables, question, etc.
-
-#     Returns:
-#         JSON containing the final output value or error message.
-#     """
-#     thread_id = f"thread-{request.session_id}"
-#     inputs = {
-#         "question": request.question,
-#         "target_tables": request.target_tables,
-#         "attempts": request.attempts,
-#         }
-#     config = {
-#         "recursion_limit": 20,
-#         "configurable": {"thread_id": thread_id},
-#         }
-
-#     try:
-#         value = None
-#         async for output in sql_agent_graph.astream(inputs, config):
-#             for key, val in output.items():
-#                 # print(f">>> Node : {key}")
-#                 value = val  # 마지막 값만 저장
-#             # print("=" * 70)
-
-#         if value is None:
-#             raise HTTPException(status_code=500, detail="No output generated")
-
-#         logger.info(f"final output: \n{value}")
-
-#         history = list(sql_agent_graph.get_state_history(config={"configurable": {"thread_id": thread_id}}))
-#         logger.info(f"history: \n{history}")
-#         return {"final_output": value, "history": history}
-
-#     except GraphRecursionError:
-#         error_msg = f"=== Recursion Error - {request.recursion_limit} ==="
-#         logger.error(error_msg)
-#         raise HTTPException(status_code=500, detail=error_msg)
-
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
-# class SQLRefineRequest(BaseModel):
-#     """Request model for query refinement"""
-#     question: str
-
-# class SQLRefineResponse(BaseModel):
-#     """Response model for query refinement"""
-#     refined_query_first: str
-
-# @sql_agent.post("/sql_refine", response_model=SQLRefineResponse, tags=["SQL_Agents"], operation_id="sql_refine_question")
-# async def refine_question(req: SQLRefineRequest):
-#     logger.info(f"Refine the query: {req.question}")
-#     try:
-#         # 초기 상태 구성
-#         state = {
-#             "question": req.question,
-#             }
-
-#         # 그래프 실행
-#         result = sql_refine_graph.invoke(state)
-#         logger.info(f"Refining Query completed. - {result["refined_query_first"]}")
-#         return SQLRefineResponse(refined_query_first=result["refined_query_first"])
-
-#     except Exception as e:
-#         logger.error("Query Refinery failed", exc_info=True)
-#         raise HTTPException(status_code=500, detail=str(e))

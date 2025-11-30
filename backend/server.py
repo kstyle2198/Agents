@@ -46,8 +46,10 @@ from routers.schedule import schedule
 from routers.sql_agent import sql_agent
 from routers.stream_agent import stream_agent
 from routers.ppt_maker import pptx_maker
+from routers.deep_agent import deep_agent
 
 app.include_router(schedule)
+app.include_router(deep_agent)
 app.include_router(web_search)
 app.include_router(wiki_search)
 app.include_router(arxiv_search)

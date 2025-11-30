@@ -10,8 +10,9 @@ model_name = os.getenv("NO_THINK_MODEL")
 
 
 # 로거 설정
-import logging
-logger = logging.getLogger("shcuedule_agent")
+from utils.setlogger import setup_logger
+logger = setup_logger(f"{__name__}")
+
 
 from langchain_google_community import CalendarToolkit
 from langchain_google_community.calendar.utils import (
@@ -271,14 +272,18 @@ def is_new_event(user_input: str, event_list: List[str]) -> bool:
         logger.error(f"Error during event check: {str(e)}")
         return True  # 에러 발생 시 기본적으로 새 이벤트라고 간주
 
+def _get_weekday(weekday_num:int):
+    weekday = {0:"월요일", 1:"화요일", 2:"수요일", 3:"목요일", 4:"금요일", 5:"토요일", 6:"일요일"}
+    return weekday[weekday_num]
+
 def process_schedule_request(user_input: str) -> Union[List[ScheduleInfo], None]:
     """사용자 입력을 처리하여 일정 정보를 추출"""
-    current_date = datetime.now().strftime("%Y-%m-%d")
-    logger.info(f">>>current_date: {current_date}")
+    date_str = date_extracter(user_input=user_input)
+    logger.info(f">>>target_date: {date_str}")
     system_prompt = f"""
     You are an expert schedule assistant. 
-    오늘은 {datetime.today()} 입니다 (Asia/Seoul timezone).
-    시간이 특정되지 않은 경우는 00:00 처리해주세요.T
+    사용자의 조회 대상 요청 일자는 {date_str}입니다. 
+    시간이 특정되지 않은 경우는 00:00 처리해주세요.
     If the year is not mentioned, just assume this year is {datetime.year}. (Asia/Seoul timezone).
 
     Type of Schedules : 미팅(meeting), 연차(full day off), 반차(half day off), 거점(remote office) 
@@ -343,17 +348,17 @@ def date_extracter(user_input:str) -> str:
     """사용자의 입력에서 날짜와 시간을 추출"""
     system_prompt = f"""
     당신의 역할은 사용자의 입력에서 날짜 또는 시간과 관련된 단어를 포착후 String 형식으로 추출하는 것입니다.
-    오늘은 {datetime.today()} 입니다. (Asia/Seoul timezone).
+    오늘은 {datetime.today()} {_get_weekday(int(datetime.today().weekday()))} 입니다. (Asia/Seoul timezone).
     시간이 특정되지 않은 경우는 00:00 처리해주세요.
     
     <User Input>
     {user_input}
     </User Input>
 
-    <Example>
+    <Example1>
     - user input: 10월 30일 오후 2시의 주요 일정을 브리핑
     - output : :2025-10-30, 14:00
-    </Example>
+    </Example1>
 
     사용자의 입력에 응답하지 말고,
     입력에 포함된 날짜와 시간만 반환하고, 다른 부사적인 정보는 제외해주세요.
@@ -369,7 +374,7 @@ def date_extracter(user_input:str) -> str:
             temperature=0.0,  # 약간의 창의성 허용
             max_tokens=1000
         )
-        res = response.choices[0].message.content        
+        res = response.choices[0].message.content    
         return res
 
     except Exception as e:
@@ -389,6 +394,10 @@ def get_schedules(calendar_id: str, user_input:str):
         date = datetime.strptime(date_str, "%Y-%m-%d, %H:%M")
         time_min = date.isoformat() + "Z"
         time_max = (date + timedelta(days=1)).isoformat() + "Z"
+    # finally:
+    #     date = datetime.strptime(date_str, "%Y-%m-%d, 00:00")
+    #     time_min = date.isoformat() + "Z"
+    #     time_max = (date + timedelta(days=1)).isoformat() + "Z"
         
     api_resource = make_api_resource()
     events_result = api_resource.events().list(
@@ -406,16 +415,17 @@ def schedule_briefing(user_input:str, event_dict: dict) -> str:
     """사용자의 일정 브리핑"""
     system_prompt = f"""
     당신은 스마트하고 상냥한 일정관리 비서입니다.
-
-    오늘은 {datetime.today()} 입니다. (Asia/Seoul timezone).
     아래 내용을 참고하여 일정과 시간을 분석후 브리핑해주세요.
     장단기 일정을 구분하여 브리핑 해주세요.
 
     <Ref Schedules>
     {event_dict}
+    </Ref Schedules>
 
     <User Input>
+    오늘은 {datetime.today()} {_get_weekday(int(datetime.today().weekday()))} 입니다. (Asia/Seoul timezone).
     {user_input}
+    </User Input>
     
     반드시 주어진 일정에 있는 내용만 브리핑하고 친절하고 정중한 ton & manner를 지켜주세요.
     """

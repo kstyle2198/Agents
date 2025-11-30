@@ -1,8 +1,9 @@
 import streamlit as st
 import asyncio
 from langchain_mcp_adapters.client import MultiServerMCPClient
-from langgraph.prebuilt import create_react_agent
 from langchain.agents import create_agent
+from langchain.agents.middleware import SummarizationMiddleware, TodoListMiddleware
+from langchain.agents.middleware.file_search import FilesystemFileSearchMiddleware
 from langchain_groq import ChatGroq
 from langchain_core.messages import AIMessage
 from dotenv import load_dotenv
@@ -72,15 +73,21 @@ for message in st.session_state.messages:
 model = ChatGroq(
     model="qwen/qwen3-32b", # 사용 가능한 모델로 변경 가능
     temperature=0.1,
-    max_tokens=2000,
+    # max_tokens=200
     )
+
+summarize_model = ChatGroq(
+    model="openai/gpt-oss-safeguard-20b", # 사용 가능한 모델로 변경 가능
+    temperature=0.1,
+    )
+
 
 # 프롬프트 정의
 prompt_template = """
 당신은 스마트한 AI Assistant입니다.
 당신에게는 세가지의 Tool이 주어집니다. (Wiki Search, Web Search, Arxiv Search)
 Tool Calling의 결과에 근거하여 간결하고 논리적인 답변을 생성해주세요.
-답변 생성시, 관련 근거 내용의 출처도 함께 제공해주세요.
+답변 생성시, 사용한 tool의 이름 및 관련 근거 내용의 출처도 함께 제공해주세요.
 만약 Tool Calling 결과에 관련 정보가 없다면, '모르겠습니다'라고 답변해주세요.
 한국어로 답변해주세요.
 """
@@ -88,7 +95,16 @@ Tool Calling의 결과에 근거하여 간결하고 논리적인 답변을 생�
 # ReAct 에이전트 생성
 # tools가 비어있지 않은 경우에만 에이전트를 생성합니다.
 if tools:
-    agent = create_agent(model=model, tools=tools, system_prompt=prompt_template)
+    agent = create_agent(model=model, 
+                         tools=tools, 
+                         system_prompt=prompt_template, 
+                         middleware=[TodoListMiddleware(),
+                                     SummarizationMiddleware(
+                                        model=summarize_model,  # 요약 전용 Groq 모델
+                                        trigger=[("tokens", 4000), ("messages", 10)],
+                                        keep=("messages", 20),
+                                        ),
+                                     FilesystemFileSearchMiddleware(root_path="C:/Users/jongb/Desktop/temp",use_ripgrep=True,max_file_size_mb=10),])
 
 # 사용자 입력 처리
 if user_query := st.chat_input("질문을 입력하세요..."):
@@ -143,5 +159,3 @@ if st.session_state.messages:
 if st.button("🗑️ 대화 초기화"):
     st.session_state.messages = []
     st.rerun()
-
-

@@ -8,13 +8,13 @@ BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 
 # Streamlit 앱 설정
 st.set_page_config(
-    page_title="PPTX 생성기",
-    page_icon="📊",
+    page_title="PPTX Maker",
+    page_icon="",
     layout="wide"
 )
 
 # 제목과 설명
-st.title("📊 텍스트 요약 및 PPTX 생성기")
+st.title("PPTX Maker")
 st.markdown("""
 긴 텍스트를 입력하면 AI가 자동으로 요약하고 PowerPoint 프레젠테이션을 생성합니다.
 """)
