@@ -190,34 +190,83 @@ class ConvertToSQL(BaseModel):
         description="The SQL query corresponding to the natural language question."
     )
 
+# def convert_nl_to_sql(state: GraphState, config: RunnableConfig):
+#     """ Convert natural language question to SQL query and update the state. """
+#     logger.debug(f"convert_nl_to_sql")  
+#     target_tables = state["target_tables"]
+#     question = state["refined_query_first"]
+#     schema = get_database_schema(target_tables = target_tables)
+#     # print(f"Converting question to SQL : {question}")
+#     system = f"""You are an assistant that converts natural language questions into SQL queries based on the following schema:
+
+# {schema}
+
+# Provide only the SQL query without any explanations. 
+# Alias columns appropriately to match the expected keys in the result.
+# Apply appropriate type castings when needed.
+
+# """
+#     convert_prompt = ChatPromptTemplate.from_messages(
+#         [
+#             ("system", system),
+#             ("human", "Question: {question}"),
+#         ]
+#     )
+#     structured_llm = llm.with_structured_output(ConvertToSQL)
+#     sql_generator = convert_prompt | structured_llm
+#     result = sql_generator.invoke({"question": question})
+#     state["sql_query"] = result.sql_query
+#     logger.info(f"Generated SQL Query: {state['sql_query']}")
+#     return state
+
+
 def convert_nl_to_sql(state: GraphState, config: RunnableConfig):
     """ Convert natural language question to SQL query and update the state. """
-    logger.debug(f"convert_nl_to_sql")  
+    logger.debug("convert_nl_to_sql")
+
     target_tables = state["target_tables"]
     question = state["refined_query_first"]
-    schema = get_database_schema(target_tables = target_tables)
-    # print(f"Converting question to SQL : {question}")
-    system = f"""You are an assistant that converts natural language questions into SQL queries based on the following schema:
+    schema = get_database_schema(target_tables=target_tables)
+
+    # 강화된 SQL 생성 시스템 프롬프트
+    system = f"""
+You are an assistant that converts natural language questions into SQL queries
+based on the following database schema:
 
 {schema}
 
-Provide only the SQL query without any explanations. 
-Alias columns appropriately to match the expected keys in the result.
-Apply appropriate type castings when needed.
+### MUST FOLLOW RULES
+1. **Apply correct type casting** whenever numeric aggregation (SUM, AVG, MAX, MIN) 
+   is performed on columns that may not be numeric.
+2. If a column type is VARCHAR/TEXT but used in numeric operations, ALWAYS cast:
+      - Use: column_name::numeric
+3. Avoid casting primary keys or IDs unless required.
+4. SQL must be valid PostgreSQL syntax.
+5. Return ONLY the SQL query. No explanation.
+
+### Examples:
+- SUM(TOTAL_REVENUE) → SUM(TOTAL_REVENUE::numeric)
+- ORDER BY TOTAL_REVENUE → ORDER BY TOTAL_REVENUE::numeric
+- WHERE TOTAL_REVENUE > 1000 → WHERE TOTAL_REVENUE::numeric > 1000
 
 """
+
     convert_prompt = ChatPromptTemplate.from_messages(
         [
             ("system", system),
             ("human", "Question: {question}"),
         ]
     )
+
     structured_llm = llm.with_structured_output(ConvertToSQL)
     sql_generator = convert_prompt | structured_llm
+
     result = sql_generator.invoke({"question": question})
     state["sql_query"] = result.sql_query
+
     logger.info(f"Generated SQL Query: {state['sql_query']}")
     return state
+
 
 def format_query_result(data: list[dict]) -> str:
     """
@@ -244,6 +293,7 @@ def execute_sql(state: GraphState):
     """ Execute the SQL query and update the state with results or errors. """
     logger.debug(f"execute_sql")
     sql_query = state["sql_query"].strip()
+    print(f">>> sql_query: {sql_query}")
     session = SessionLocal()
     try:
         result = session.execute(text(sql_query))
@@ -252,7 +302,7 @@ def execute_sql(state: GraphState):
             columns = result.keys()
 
             if rows:
-                header = columns # ", ".join(columns)
+                # header = columns # ", ".join(columns)
                 state["query_rows"] = [dict(zip(columns, row)) for row in rows]
                 # print(f"Raw SQL Query Result: {state['query_rows']}")
 
