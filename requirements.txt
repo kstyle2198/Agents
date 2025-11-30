@@ -70,6 +70,7 @@ langchain-google-community==3.0.1
 langchain-google-genai==3.2.0
 langchain-groq==1.1.0
 langchain-mcp-adapters==0.1.14
+langchain-ollama==1.0.0
 langchain-tavily==0.2.13
 langchain-text-splitters==1.0.0
 langgraph==1.0.4
@@ -89,6 +90,7 @@ mypy-extensions==1.1.0
 narwhals==2.12.0
 numpy==2.3.5
 oauthlib==3.3.1
+ollama==0.6.1
 openpyxl==3.1.5
 orjson==3.11.4
 ormsgpack==1.12.0

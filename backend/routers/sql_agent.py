@@ -10,7 +10,6 @@ import os
 from dotenv import load_dotenv
 load_dotenv(override=True)
 NO_THINK_MODEL = os.getenv("NO_THINK_MODEL")
-reranking_model_path = os.getenv("RANK_MODEL_PATH")
 
 llm = ChatGroq(model_name= NO_THINK_MODEL, temperature=0, max_retries=3, timeout=600)   
 
