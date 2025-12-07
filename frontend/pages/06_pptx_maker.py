@@ -7,11 +7,8 @@ from typing import Optional
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 
 # Streamlit 앱 설정
-st.set_page_config(
-    page_title="PPTX Maker",
-    page_icon="",
-    layout="wide"
-)
+st.set_page_config(page_title="UI", page_icon="🐬", layout="wide", initial_sidebar_state="collapsed")
+
 
 # 제목과 설명
 st.title("PPTX Maker")

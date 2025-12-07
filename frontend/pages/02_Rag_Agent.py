@@ -116,6 +116,21 @@ if st.session_state.session_id:
         threads_history = response.json().get("threads", [])
         st.session_state.threads = list(reversed(threads_history))
 
+    
+
+    with st.expander(f"🔍 ElasticSearch 검색 결과 - {st.session_state.session_id}"):
+        if st.session_state.threads:
+            for h in st.session_state.threads:
+                try:
+                    if h[1][0]  == "search":
+                        with st.container(border=True, height=600):
+                            for i in h[-2]:
+                                for k in i[6]["search_results"]:
+                                    st.warning(f"{k["lv1_cat"]}/{k["lv2_cat"]}/{k["lv3_cat"]}/{k["lv4_cat"]}/{k["filename"]}({k["page"]} page) -  score: {k["_score"]}")
+                                    st.info(k["page_content"])
+                                    # st.info(k)
+                except: pass
+
     with st.expander(f"🔍 Rag Agent 작업 과정 보기 - {st.session_state.session_id}"):
         if st.session_state.threads:
             for h in st.session_state.threads:
@@ -136,3 +151,119 @@ if st.button("🗑️ 대화 초기화"):
     st.session_state.session_id = str(uuid.uuid4())
     st.session_state.messages = [{"role": "assistant", "content": "새로운 세션이 시작되었습니다. 무엇을 도와드릴까요?"}]
     st.rerun() # 앱 재실행하여 변경된 상태 반영
+
+
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+import base64
+from io import BytesIO
+
+# ------------------------------
+# PDF 생성 함수
+# ------------------------------
+import markdown2
+from xhtml2pdf import pisa
+from io import BytesIO
+
+# --------------------------------------------------------------------
+# Markdown → HTML → PDF 변환 (Markdown 스타일 완전 유지)
+# --------------------------------------------------------------------
+
+def create_markdown_pdf(messages):
+    buffer = BytesIO()
+
+    # [수정 1] 현재 실행 중인 파일의 절대 경로를 기준으로 폰트 경로 설정
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    FONT_PATH = os.path.join(current_dir, "fonts", "NanumGothic-Regular.ttf")
+
+    # 1) 전체 대화 → Markdown 문자열
+    md_text = ""
+    for msg in messages:
+        md_text += f"### {msg['role'].capitalize()}\n\n{msg['content']}\n\n---\n\n"
+
+    # 2) Markdown → HTML
+    html_body = markdown2.markdown(md_text, extras=[
+        "tables", "fenced-code-blocks", "strike", "task_list", "code-friendly"
+    ])
+
+    # 3) HTML + 폰트 임베딩
+    html = f"""
+    <html>
+    <head>
+        <meta charset="utf-8" />
+        <style>
+            @font-face {{
+                font-family: "NotoSansKR";
+                src: url("{FONT_PATH}");
+            }}
+
+            body {{
+                font-family: "NotoSansKR";
+                padding: 20px;
+                font-size: 12pt;
+                line-height: 1.5;
+            }}
+
+            h1, h2, h3 {{
+                font-family: "NotoSansKR";
+                margin-top: 24px;
+            }}
+
+            pre {{
+                background: #f4f4f4;
+                padding: 10px;
+                border-radius: 6px;
+                font-size: 10pt;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+            }}
+
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+            }}
+            th, td {{
+                border: 1px solid #666;
+                padding: 6px;
+            }}
+        </style>
+    </head>
+    <body>{html_body}</body>
+    </html>
+    """
+
+    # 4) HTML → PDF 변환
+    pisa.CreatePDF(html, dest=buffer)
+
+    buffer.seek(0)
+    return buffer
+# ------------------------------
+# PDF 다운로드 버튼 (Sidebar)
+# ------------------------------
+with st.sidebar:
+    st.subheader("📄 PDF Export (Markdown 스타일 유지)")
+
+    if st.button("💾 PDF 생성"):
+        pdf_buffer = create_markdown_pdf(st.session_state.messages)
+        st.download_button(
+            label="📥 PDF 다운로드",
+            data=pdf_buffer,
+            file_name="chat_history_kr.pdf",
+            mime="application/pdf"
+        )
+
+
+with st.sidebar:
+    st.markdown("""
+- Attention Is All You Need (Vaswani et al., 2017)
+- Learning Transferable Visual Models From Natural Language Supervision (Radford et al., 2021)
+- From Local to Global: A Graph RAG Approach to Query-Focused Summarization(Edge et al., 2024)
+- Visual Instruction Tuning (Liu et al., 2023)
+- LoRA: Low-Rank Adaptation of Large Language Models (Hu et al., 2021)
+- Direct Preference Optimization: Your Language Model is Secretly a Reward Model (Rafailov et al., 2023)
+- REVEAL: Retrieval-Augmented Visual-Language Pre-Training with Multi-Source Multimodal Knowledge Memory (Hu et al., 2022)
+                """)
+    
+

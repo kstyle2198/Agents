@@ -9,8 +9,7 @@ from utils.my_stt import AudioTranscriber # 주석 처리 또는 적절히 대�
 
 # ==== 페이지 설정 ====
 st.set_page_config(page_title="UI", page_icon="🐬", layout="wide", initial_sidebar_state="collapsed")
-st.title("Schedule Agent")
-st.markdown("---")
+
 
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 API_URL = f"{BASE_URL}/schedule"
@@ -173,12 +172,59 @@ def main():
 
 
 def sidebar_main():
-    # 사이드바 로직은 변경 없이 유지
-    st.title("🔐 Google OAuth 인증 관리")
-    # ... (생략된 기존 사이드바 코드)
-    # 기존 코드의 sidebar_main() 함수 내용을 그대로 여기에 복사/붙여넣기 하거나
-    # 위의 예시처럼 주석으로 대체하세요.
-    st.info("⚠️ 사이드바 로직은 편의상 생략합니다. 기존 코드를 활용하세요.")
+    st.subheader("🔐 Google OAuth 인증 관리")
+    
+    secret_file = st.file_uploader("Upload secret.json", type=["json"])
+    if secret_file is not None:
+        st.success(f"파일 선택됨: {secret_file.name}")
+        
+        if st.button("Send to backend"):
+            try:
+                # 파일 데이터 준비
+                files = {
+                    "secret_file": (secret_file.name, secret_file, "application/json")
+                }
+                
+                # 요청 전송
+                response = requests.post(
+                    "http://localhost:8000/schedule/upload_keys", 
+                    files=files
+                    )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    st.success("✅ 인증 성공!")
+                    st.json(result)
+                else:
+                    st.error(f"❌ 오류 발생: {response.status_code}")
+                    st.text(response.text)
+                    
+            except requests.exceptions.ConnectionError:
+                st.error("🚫 백엔드 서버에 연결할 수 없습니다. FastAPI 서버가 실행 중인지 확인해주세요.")
+            except Exception as e:
+                st.error(f"❌ 오류 발생: {str(e)}")
+
+    with st.expander("📖 사용 방법"):
+        st.markdown("""
+        1. **클라이언트 시크릿 파일 업로드**
+           - Google Cloud Console에서 OAuth 2.0 클라이언트 ID를 생성
+           - JSON 형식의 클라이언트 시크릿 파일 다운로드
+           - 위에서 파일 업로드 (백엔드 저장)
+        
+        2. **OAuth 인증 수행 (백엔드에서)**
+           - 'client_secret'이 포함된 파일이 확인되면 '토큰 생성 시작' 버튼 활성화
+           - 버튼 클릭 후 브라우저에서 OAuth 인증 진행
+           - Google 계정 로그인 및 권한 승인
+        
+        3. **토큰 확인(벡엔드에서)**
+           - 인증 성공 시 `token.json` 파일 생성
+           - 이후 API 호출에 사용 가능
+        
+        **주의사항:**
+        - 업로드된 파일은 백앤드에 `keys/secret.json`으로 저장됨
+        - 토큰 파일은 백엔드에 `keys/token.json`으로 저장됨
+        - 민감한 정보가 포함되어 있으므로 안전하게 보관하세요
+        """)
 
 
 if __name__ == "__main__":
@@ -186,8 +232,80 @@ if __name__ == "__main__":
     with st.sidebar:
         sidebar_main()
 
+    st.title("Schedule Agent")
+    st.markdown("---")
+
+    import streamlit as st
+
     main()
     대화초기화() # 함수 호출 위치를 main() 바깥, 제목 아래로 옮겼습니다.
     
     # **[핵심 변경]** 가장 마지막에 하단 입력창을 렌더링
     fixed_input_bar()
+
+
+# import streamlit as st
+# from google_auth_oauthlib.flow import InstalledAppFlow
+# from googleapiclient.discovery import build
+# import pandas as pd
+# import datetime
+# import plotly.express as px
+
+# # -------------------------------
+# # OAuth 인증
+# # -------------------------------
+# SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
+
+# st.title("Google Calendar Viewer")
+
+# if "creds" not in st.session_state:
+#     st.session_state.creds = None
+
+# if st.session_state.creds is None:
+#     st.write("**구글 계정으로 로그인 필요**")
+#     if st.button("Login with Google"):
+#         flow = InstalledAppFlow.from_client_secrets_file(
+#             'D:/Agents/backend/config/client_secret_39562377782-nge5sdugil9eurkbgn54temjtgq06tbh.apps.googleusercontent.com.json', SCOPES
+#         )
+#         creds = flow.run_local_server(port=0)
+#         st.session_state.creds = creds
+#         st.rerun()  # 로그인 후 새로고침
+
+# # -------------------------------
+# # Google Calendar API 호출
+# # -------------------------------
+# if st.session_state.creds:
+#     service = build('calendar', 'v3', credentials=st.session_state.creds)
+#     now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
+#     events_result = service.events().list(
+#         calendarId='primary', timeMin=now, maxResults=50, singleEvents=True,
+#         orderBy='startTime'
+#     ).execute()
+#     events = events_result.get('items', [])
+
+#     if not events:
+#         st.write("캘린더에 예정된 이벤트가 없습니다.")
+#     else:
+#         # -------------------------------
+#         # 이벤트 데이터를 DataFrame으로 변환
+#         # -------------------------------
+#         data = []
+#         for event in events:
+#             start = event['start'].get('dateTime', event['start'].get('date'))
+#             end = event['end'].get('dateTime', event['end'].get('date'))
+#             data.append({'start': start, 'end': end, 'summary': event.get('summary', 'No Title')})
+        
+#         df = pd.DataFrame(data)
+#         df['start'] = pd.to_datetime(df['start'])
+#         df['end'] = pd.to_datetime(df['end'])
+
+#         st.write("### Upcoming Events")
+#         st.dataframe(df[['start', 'end', 'summary']])
+
+#         # -------------------------------
+#         # 달력 형태 시각화 (막대 차트)
+#         # -------------------------------
+#         fig = px.timeline(df, x_start="start", x_end="end", y="summary", color="summary")
+#         fig.update_yaxes(autorange="reversed")  # 상단부터 최근 이벤트
+#         st.write("### Calendar View")
+#         st.plotly_chart(fig, use_container_width=True)
