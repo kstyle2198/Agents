@@ -6,7 +6,8 @@ from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 load_dotenv(override=True)
-model_name = os.getenv("NO_THINK_MODEL")
+model_name = os.getenv("SMALL_MODEL")
+big_model = os.getenv("BIG_MODEL")
 
 
 # 로거 설정
@@ -357,7 +358,7 @@ def date_extracter(user_input:str) -> str:
 
     <Example1>
     - user input: 10월 30일 오후 2시의 주요 일정을 브리핑
-    - output : :2025-10-30, 14:00
+    - output : 2025-10-30, 14:00
     </Example1>
 
     사용자의 입력에 응답하지 말고,
@@ -432,7 +433,7 @@ def schedule_briefing(user_input:str, event_dict: dict) -> str:
 
     try:
         response = client.chat.completions.create(
-            model=model_name,  # JSON 출력에 더 적합한 모델
+            model=big_model,  # JSON 출력에 더 적합한 모델
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_input}

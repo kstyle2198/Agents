@@ -71,13 +71,13 @@ for message in st.session_state.messages:
 
 # LLM 정의
 model = ChatGroq(
-    model="qwen/qwen3-32b", # 사용 가능한 모델로 변경 가능
+    model="openai/gpt-oss-120b", # 사용 가능한 모델로 변경 가능
     temperature=0.1,
     # max_tokens=200
     )
 
 summarize_model = ChatGroq(
-    model="openai/gpt-oss-safeguard-20b", # 사용 가능한 모델로 변경 가능
+    model="openai/gpt-oss-120b", # 사용 가능한 모델로 변경 가능
     temperature=0.1,
     )
 

@@ -5,6 +5,9 @@ import json
 import uuid
 from typing import Dict, Any
 
+from utils.my_stt import AudioTranscriber # 주석 처리 또는 적절히 대체
+transcriber = AudioTranscriber()
+
 # ---------------------------------------------------------
 # 1. 환경 설정
 # ---------------------------------------------------------
@@ -95,8 +98,12 @@ def process_streaming_response(data: Dict[str, Any]):
 # ---------------------------------------------------------
 # 5. 입력 처리
 # ---------------------------------------------------------
-if prompt := st.chat_input("질문을 입력하세요..."):
+if prompt := st.chat_input("질문을 입력하세요...", accept_audio=True):
     # 사용자 메시지를 이력에 추가하고 표시
+    # if prompt.audio:
+    #     audio_bytes = prompt.audio.read()
+    #     prompt = transcriber.transcribe_audio2(audio_bytes=audio_bytes)
+    # else: pass
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.chat_message("user").write(prompt)
 
@@ -105,7 +112,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
         "question": prompt,
         "session_id": st.session_state.session_id
     }
-    
+
     process_streaming_response(api_request_data)
 
 

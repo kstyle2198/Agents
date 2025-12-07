@@ -54,6 +54,14 @@ class AudioTranscriber:
 
         return transcription.text
     
+    def transcribe_audio2(self, audio_bytes):
+        """녹음 파일을 읽어서 Whisper 모델로 변환"""
+        transcription = self.client.audio.transcriptions.create(
+            model=self.model,   # yes, this model handles STT too
+            file=("audio.wav", audio_bytes)
+            )
+        return transcription.text
+    
     def run(self):
         """전체 실행"""
         self.record_audio()

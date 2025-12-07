@@ -7,13 +7,13 @@ from datetime import datetime, timedelta
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
 load_dotenv(override=True)
-model_name = os.getenv("NO_THINK_MODEL")
+model_name = os.getenv("BIG_MODEL")
 
 # 로거 설정
 from utils.setlogger import setup_logger
 logger = setup_logger(f"{__name__}")
 
-llm = ChatGroq(temperature=0, model_name= model_name) 
+llm = ChatGroq(temperature=0, model_name=model_name) 
 
 from utils.schedule_helper_v2 import (
     add_meeting_event,

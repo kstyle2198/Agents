@@ -28,7 +28,7 @@ logger = setup_logger(f"{__name__}")
 # ---------------------------------------------------------
 # 1. LLM 및 State 설정 (이전과 동일)
 # ---------------------------------------------------------
-MODEL_NAME = os.getenv("NO_THINK_MODEL", "llama3-8b-8192")
+MODEL_NAME = os.getenv("BIG_MODEL")
 llm = ChatGroq(model=MODEL_NAME, temperature=0)
 
 class QAState(TypedDict):

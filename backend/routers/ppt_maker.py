@@ -17,7 +17,7 @@ logger = setup_logger(f"{__name__}")
 
 from dotenv import load_dotenv
 load_dotenv()
-think_model = os.getenv("NO_THINK_MODEL")
+BIG_MODEL = os.getenv("SMALL_MODEL")
 
 # =========================================
 # 1. 코어 로직: 서브 주제 및 핵심 문장 추출
@@ -27,7 +27,7 @@ def extract_subtopics_and_key_points(text: str) -> List[dict]:
     LLM을 활용하여 텍스트에서 서브 주제와 주제별 핵심 문장 5~7개를 추출합니다.
     """
     try:
-        llm = ChatGroq(model=think_model, temperature=0.5)
+        llm = ChatGroq(model=BIG_MODEL, temperature=0.5)
         
         messages = [
             SystemMessage(content=(

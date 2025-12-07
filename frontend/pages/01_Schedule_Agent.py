@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 from utils.my_stt import AudioTranscriber # 주석 처리 또는 적절히 대체
-
+transcriber = AudioTranscriber()
 # ==== 페이지 설정 ====
 st.set_page_config(page_title="UI", page_icon="🐬", layout="wide", initial_sidebar_state="collapsed")
 
@@ -87,11 +87,17 @@ def fixed_input_bar():
         
         with col1:
             # 채팅 입력 위젯은 항상 여기에 있어야 하며, 세션 상태에 저장
-            prompt = st.chat_input("일정 입력 또는 브리핑을 요청해보세요.", key="chat_input_key")
+            prompt = st.chat_input("일정 입력 또는 브리핑을 요청해보세요.", accept_audio=True, key="chat_input_key")
+            if prompt and prompt.text:
+                prompt = prompt.text
+            elif prompt and prompt.audio:
+                audio_bytes = prompt.audio.read()
+                prompt = transcriber.transcribe_audio2(audio_bytes=audio_bytes)
+            else: pass
         
         with col2:
             # 음성 입력 버튼
-            if st.button("🎤 음성 입력", key="voice_input_button"):
+            if st.button("🎤 음성 입력(5초)", key="voice_input_button"):
                 st.session_state.user_prompt = 음성입력()
                 st.rerun() # 음성 입력 후 프롬프트를 처리하기 위해 새로고침
 
@@ -242,70 +248,3 @@ if __name__ == "__main__":
     
     # **[핵심 변경]** 가장 마지막에 하단 입력창을 렌더링
     fixed_input_bar()
-
-
-# import streamlit as st
-# from google_auth_oauthlib.flow import InstalledAppFlow
-# from googleapiclient.discovery import build
-# import pandas as pd
-# import datetime
-# import plotly.express as px
-
-# # -------------------------------
-# # OAuth 인증
-# # -------------------------------
-# SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
-
-# st.title("Google Calendar Viewer")
-
-# if "creds" not in st.session_state:
-#     st.session_state.creds = None
-
-# if st.session_state.creds is None:
-#     st.write("**구글 계정으로 로그인 필요**")
-#     if st.button("Login with Google"):
-#         flow = InstalledAppFlow.from_client_secrets_file(
-#             'D:/Agents/backend/config/client_secret_39562377782-nge5sdugil9eurkbgn54temjtgq06tbh.apps.googleusercontent.com.json', SCOPES
-#         )
-#         creds = flow.run_local_server(port=0)
-#         st.session_state.creds = creds
-#         st.rerun()  # 로그인 후 새로고침
-
-# # -------------------------------
-# # Google Calendar API 호출
-# # -------------------------------
-# if st.session_state.creds:
-#     service = build('calendar', 'v3', credentials=st.session_state.creds)
-#     now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
-#     events_result = service.events().list(
-#         calendarId='primary', timeMin=now, maxResults=50, singleEvents=True,
-#         orderBy='startTime'
-#     ).execute()
-#     events = events_result.get('items', [])
-
-#     if not events:
-#         st.write("캘린더에 예정된 이벤트가 없습니다.")
-#     else:
-#         # -------------------------------
-#         # 이벤트 데이터를 DataFrame으로 변환
-#         # -------------------------------
-#         data = []
-#         for event in events:
-#             start = event['start'].get('dateTime', event['start'].get('date'))
-#             end = event['end'].get('dateTime', event['end'].get('date'))
-#             data.append({'start': start, 'end': end, 'summary': event.get('summary', 'No Title')})
-        
-#         df = pd.DataFrame(data)
-#         df['start'] = pd.to_datetime(df['start'])
-#         df['end'] = pd.to_datetime(df['end'])
-
-#         st.write("### Upcoming Events")
-#         st.dataframe(df[['start', 'end', 'summary']])
-
-#         # -------------------------------
-#         # 달력 형태 시각화 (막대 차트)
-#         # -------------------------------
-#         fig = px.timeline(df, x_start="start", x_end="end", y="summary", color="summary")
-#         fig.update_yaxes(autorange="reversed")  # 상단부터 최근 이벤트
-#         st.write("### Calendar View")
-#         st.plotly_chart(fig, use_container_width=True)

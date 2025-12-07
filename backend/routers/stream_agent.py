@@ -42,8 +42,8 @@ from langchain_groq import ChatGroq
 from langgraph.prebuilt import ToolNode, tools_condition
 
 load_dotenv()
-think_model = os.getenv("THINK_MODEL")
-llm = ChatGroq(model_name=think_model, temperature=0,max_tokens=3000,) 
+BIG_MODEL = os.getenv("BIG_MODEL")
+llm = ChatGroq(model_name=BIG_MODEL, temperature=0,max_tokens=3000,) 
 memory = MemorySaver()
 llm_with_tools = llm.bind_tools(tools=tools)
 

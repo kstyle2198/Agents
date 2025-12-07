@@ -9,9 +9,9 @@ from langchain_groq import ChatGroq
 import os
 from dotenv import load_dotenv
 load_dotenv(override=True)
-NO_THINK_MODEL = os.getenv("NO_THINK_MODEL")
+SMALL_MODEL = os.getenv("SMALL_MODEL")
 
-llm = ChatGroq(model_name= NO_THINK_MODEL, temperature=0, max_retries=3, timeout=600)   
+llm = ChatGroq(model_name= SMALL_MODEL, temperature=0, max_retries=3, timeout=600)   
 
 
 ### 참고용 단어 변환 및 컬럼 설명 사전 로드
