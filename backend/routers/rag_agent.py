@@ -20,6 +20,7 @@ from langchain_groq import ChatGroq
 
 # Custom Imports
 from process.es_search_index import es
+from process.postgres import pg
 from utils.setlogger import setup_logger
 
 load_dotenv(override=True)
@@ -158,18 +159,63 @@ async def generate_chat_stream(input_data: dict, config: dict, session_id: str) 
     yield json.dumps({"type": "end", "session_id": session_id}, ensure_ascii=False) + "\n"
 
 
-@rag_agent.post("/rag_chat_stream", tags=["rag_agent"])
-async def chat_stream(req: ChatRequest):
-    # 세션 ID 생성 또는 유지
-    session_id = req.session_id if req.session_id else str(uuid.uuid4())
+    # Postgres 저장
+    final_state = await rag_app.ainvoke(input_data, config=config)
+    human_messages = [msg for msg in final_state['messages'] if isinstance(msg, HumanMessage)]
+    data = {"session_id": session_id, "query": human_messages[-1].content, "refined_query": final_state['refined_query'], "answer": final_state['answer'], "search_results": final_state['search_results']}
+    pg.insert_agent_data(table_name="agent", data=data)
+    logger.info("Postress Saved Successfully")
+
+
+# @rag_agent.post("/rag_chat_stream", tags=["rag_agent"])
+# async def chat_stream(req: ChatRequest):
+#     # 세션 ID 생성 또는 유지
+#     session_id = req.session_id if req.session_id else str(uuid.uuid4())
+#     config = {"configurable": {"thread_id": session_id}}
+    
+#     input_data = {"messages": [HumanMessage(content=req.question)]}
+    
+#     return StreamingResponse(
+#         generate_chat_stream(input_data, config, session_id),
+#         media_type="application/x-ndjson" # Newline Delimited JSON
+#     )
+
+
+async def save_to_postgres(input_data, config, session_id):
+    final_state = await rag_app.ainvoke(input_data, config=config)
+    human_messages = [m for m in final_state["messages"] if isinstance(m, HumanMessage)]
+
+    data = {
+        "session_id": session_id,
+        "query": human_messages[-1].content,
+        "refined_query": final_state["refined_query"],
+        "answer": final_state["answer"],
+        "search_results": final_state["search_results"],
+    }
+
+    pg.insert_agent_data("agent", data)
+    logger.info("Postgres Saved Successfully")
+
+from fastapi import BackgroundTasks
+
+@rag_agent.post("/rag_chat_stream",  tags=["rag_agent"])
+async def chat_stream(req: ChatRequest, background_tasks: BackgroundTasks):
+    session_id = req.session_id or str(uuid.uuid4())
     config = {"configurable": {"thread_id": session_id}}
-    
     input_data = {"messages": [HumanMessage(content=req.question)]}
-    
+
+    background_tasks.add_task(
+        save_to_postgres,
+        input_data,
+        config,
+        session_id
+    )
+
     return StreamingResponse(
         generate_chat_stream(input_data, config, session_id),
-        media_type="application/x-ndjson" # Newline Delimited JSON
+        media_type="application/x-ndjson"
     )
+
 
 @rag_agent.get("/rag_threads", tags=["rag_agent"])
 def list_threads(thread_id: str):
@@ -182,3 +228,15 @@ def list_threads(thread_id: str):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+@rag_agent.get("/chat_history", tags=["rag_agent"])
+def get_chat_history(table_name:str, limit:int):
+    data = pg.select_all_data(table_name=table_name, limit=limit)
+    return {"chat_history": data}
+
+@rag_agent.post("/delete_chat_by_id", tags=["rag_agent"])
+def delete_chat_history(table_name: str, id_column: str, record_id: str):
+    data = pg.delete_data_by_id(table_name=table_name, id_column=id_column, record_id=str(record_id))
+    return {"Status": "Delete Session Chat Successfully"}
+

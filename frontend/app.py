@@ -140,9 +140,9 @@ def make_home():
             with col131: 
                 make_hover_container(title="Rag Agent", content="Rag Agent based on ElasticSearch", url="http://localhost:8501/Rag_Agent", height="200px")
             with col132: 
-                make_hover_container(title="Streaming Test", content="LangGraph Streaming Test", url="http://localhost:8501/stream_agent", height="200px")
+                make_hover_container(title="Chat History", content="Rag Agent Chat History", url="http://localhost:8501/chat_history", height="200px")     
             with col133: 
-                make_hover_container(title="Empty04", content="", url="", height="200px")
+                make_hover_container(title="Streaming Test", content="LangGraph Streaming Test", url="http://localhost:8501/stream_agent", height="200px")
 
         with col13: pass 
 

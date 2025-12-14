@@ -111,7 +111,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
     api_request_data = {
         "question": prompt,
         "session_id": st.session_state.session_id
-    }
+        }
 
     process_streaming_response(api_request_data)
 
