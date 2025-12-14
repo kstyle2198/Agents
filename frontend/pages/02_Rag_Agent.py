@@ -98,7 +98,7 @@ def process_streaming_response(data: Dict[str, Any]):
 # ---------------------------------------------------------
 # 5. 입력 처리
 # ---------------------------------------------------------
-if prompt := st.chat_input("질문을 입력하세요...", accept_audio=True):
+if prompt := st.chat_input("질문을 입력하세요..."):
     # 사용자 메시지를 이력에 추가하고 표시
     # if prompt.audio:
     #     audio_bytes = prompt.audio.read()
@@ -160,68 +160,67 @@ if st.button("🗑️ 대화 초기화"):
     st.rerun() # 앱 재실행하여 변경된 상태 반영
 
 
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
-import base64
+import os
 from io import BytesIO
-
-# ------------------------------
-# PDF 생성 함수
-# ------------------------------
 import markdown2
 from xhtml2pdf import pisa
-from io import BytesIO
 
-# --------------------------------------------------------------------
-# Markdown → HTML → PDF 변환 (Markdown 스타일 완전 유지)
-# --------------------------------------------------------------------
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 
+
+# -------------------------------------------------
+# Markdown → HTML → PDF (한글/특수문자 정상)
+# -------------------------------------------------
 def create_markdown_pdf(messages):
     buffer = BytesIO()
 
-    # [수정 1] 현재 실행 중인 파일의 절대 경로를 기준으로 폰트 경로 설정
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    FONT_PATH = os.path.join(current_dir, "fonts", "NanumGothic-Regular.ttf")
+    # 1️⃣ 한국어 CIDFont 등록 (🔥 핵심)
+    pdfmetrics.registerFont(
+        UnicodeCIDFont("HYSMyeongJo-Medium")
+    )
 
-    # 1) 전체 대화 → Markdown 문자열
+    # 2️⃣ 메시지 → Markdown
     md_text = ""
     for msg in messages:
-        md_text += f"### {msg['role'].capitalize()}\n\n{msg['content']}\n\n---\n\n"
+        role = msg.get("role", "user").capitalize()
+        content = msg.get("content", "")
+        md_text += f"### {role}\n\n{content}\n\n---\n\n"
 
-    # 2) Markdown → HTML
-    html_body = markdown2.markdown(md_text, extras=[
-        "tables", "fenced-code-blocks", "strike", "task_list", "code-friendly"
-    ])
+    # 3️⃣ Markdown → HTML
+    html_body = markdown2.markdown(
+        md_text,
+        extras=[
+            "tables",
+            "fenced-code-blocks",
+            "strike",
+            "task_list",
+            "code-friendly"
+        ]
+    )
 
-    # 3) HTML + 폰트 임베딩
+    # 4️⃣ HTML + CSS
     html = f"""
     <html>
     <head>
-        <meta charset="utf-8" />
+        <meta charset="utf-8"/>
         <style>
-            @font-face {{
-                font-family: "NotoSansKR";
-                src: url("{FONT_PATH}");
-            }}
-
             body {{
-                font-family: "NotoSansKR";
+                font-family: HYSMyeongJo-Medium;
+                font-size: 10pt;
+                line-height: 1.6;
                 padding: 20px;
-                font-size: 12pt;
-                line-height: 1.5;
             }}
 
             h1, h2, h3 {{
-                font-family: "NotoSansKR";
-                margin-top: 24px;
+                font-family: HYSMyeongJo-Medium;
+                margin-top: 15px;
             }}
 
-            pre {{
+            pre, code {{
+                font-family: HYSMyeongJo-Medium;
                 background: #f4f4f4;
-                padding: 10px;
-                border-radius: 6px;
-                font-size: 10pt;
+                font-size: 8pt;
                 white-space: pre-wrap;
                 word-wrap: break-word;
             }}
@@ -229,38 +228,50 @@ def create_markdown_pdf(messages):
             table {{
                 width: 100%;
                 border-collapse: collapse;
-                margin-top: 10px;
+                margin-top: 8px;
             }}
+
             th, td {{
                 border: 1px solid #666;
                 padding: 6px;
             }}
         </style>
     </head>
-    <body>{html_body}</body>
+    <body>
+        {html_body}
+    </body>
     </html>
     """
 
-    # 4) HTML → PDF 변환
-    pisa.CreatePDF(html, dest=buffer)
+    # 5️⃣ PDF 생성
+    pisa_status = pisa.CreatePDF(
+        html,
+        dest=buffer,
+        encoding="utf-8"
+    )
+
+    if pisa_status.err:
+        raise RuntimeError("PDF 생성 실패")
 
     buffer.seek(0)
     return buffer
+
+
 # ------------------------------
 # PDF 다운로드 버튼 (Sidebar)
 # ------------------------------
 with st.sidebar:
     st.subheader("📄 PDF Export (Markdown 스타일 유지)")
+    file_name = st.text_input("PDF filename", value="testfile")
 
     if st.button("💾 PDF 생성"):
-        pdf_buffer = create_markdown_pdf(st.session_state.messages)
+        pdf_buffer = create_markdown_pdf(st.session_state.messages[-2:])
         st.download_button(
             label="📥 PDF 다운로드",
             data=pdf_buffer,
-            file_name="chat_history_kr.pdf",
+            file_name=f"{file_name}.pdf",
             mime="application/pdf"
         )
-
 
 with st.sidebar:
     st.markdown("""
