@@ -257,24 +257,76 @@ def create_markdown_pdf(messages):
     return buffer
 
 
+
+def create_markdown_file(messages):
+    """
+    messages: [
+        {"role": "user", "content": "..."},
+        {"role": "assistant", "content": "..."}
+    ]
+    """
+
+    buffer = BytesIO()
+
+    md_lines = []
+    md_lines.append("# 💬 대화 기록\n")
+
+    for msg in messages:
+        role = msg.get("role", "user").capitalize()
+        content = msg.get("content", "")
+
+        md_lines.append(f"## {role}\n")
+        md_lines.append(content)
+        md_lines.append("\n---\n")
+
+    md_text = "\n".join(md_lines)
+
+    # UTF-8 인코딩으로 BytesIO에 기록
+    buffer.write(md_text.encode("utf-8"))
+    buffer.seek(0)
+
+    return buffer
+
 # ------------------------------
 # PDF 다운로드 버튼 (Sidebar)
 # ------------------------------
-with st.sidebar:
-    st.subheader("📄 PDF Export (Markdown 스타일 유지)")
-    file_name = st.text_input("PDF filename", value="testfile")
 
-    if st.button("💾 PDF 생성"):
-        pdf_buffer = create_markdown_pdf(st.session_state.messages[-2:])
-        st.download_button(
-            label="📥 PDF 다운로드",
-            data=pdf_buffer,
-            file_name=f"{file_name}.pdf",
-            mime="application/pdf"
+import zipfile
+
+def create_pdf_md_zip(messages, file_name):
+    pdf_buffer = create_markdown_pdf(messages)
+    md_buffer = create_markdown_file(messages)
+
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(f"{file_name}.pdf", pdf_buffer.getvalue())
+        zf.writestr(f"{file_name}.md", md_buffer.getvalue())
+
+    zip_buffer.seek(0)
+    return zip_buffer
+
+with st.sidebar:
+    st.subheader("📄 PDF/Markdown Export")
+    file_name = st.text_input("Filename", value="testfile")
+    saving_turns = st.pills("저장 대화 턴", options=[2,4,6,8], default=[2], selection_mode="single", help="끝에서 몇번째 대회까지 저장")
+
+    if st.button("💾 PDF/Markdown 생성"):
+        zip_buffer = create_pdf_md_zip(
+        st.session_state.messages[-1 * int(saving_turns):],
+        file_name
         )
+
+        st.download_button(
+            label="📦 PDF + Markdown 다운로드",
+            data=zip_buffer,
+            file_name=f"{file_name}.zip",
+            mime="application/zip")
+
+    
 
 with st.sidebar:
     st.markdown("""
+## 논문 리스트
 - Attention Is All You Need (Vaswani et al., 2017)
 - Learning Transferable Visual Models From Natural Language Supervision (Radford et al., 2021)
 - From Local to Global: A Graph RAG Approach to Query-Focused Summarization(Edge et al., 2024)
