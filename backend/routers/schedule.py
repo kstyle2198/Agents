@@ -15,7 +15,7 @@ logger = setup_logger(f"{__name__}")
 
 llm = ChatGroq(temperature=0, model_name=model_name) 
 
-from utils.schedule_helper_v2 import (
+from process.schedule_helper_v2 import (
     add_meeting_event,
     event_dict,
     delete_event,

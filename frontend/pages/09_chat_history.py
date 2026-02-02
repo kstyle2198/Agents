@@ -5,7 +5,7 @@ import pandas as pd
 
 API_BASE = os.getenv("BASE_URL", "http://localhost:8000")   # FastAPI 주소
 
-st.set_page_config(page_title="Chat History Admin", layout="wide")
+st.set_page_config(page_title="UI", page_icon="🐬", layout="wide", initial_sidebar_state="collapsed")
 st.title("💬 Chat History 관리")
 columns = ['id', 'session_id', 'query', 'refined_query', 'answer']
 
@@ -22,7 +22,7 @@ with st.sidebar:
 
     st.markdown("---")
     session_id = st.text_input("Session ID")
-    if st.button("Data 삭제"):
+    if st.button("Chat 삭제", type="primary"):
         
         try:
             response = requests.post(

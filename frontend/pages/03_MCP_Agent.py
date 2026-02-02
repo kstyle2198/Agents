@@ -85,7 +85,7 @@ summarize_model = ChatGroq(
 # 프롬프트 정의
 prompt_template = """
 당신은 스마트한 AI Assistant입니다.
-당신에게는 세가지의 Tool이 주어집니다. (Wiki Search, Web Search, Arxiv Search)
+당신에게는 네 가지의 Tool이 주어집니다. (Wiki Search, Flights Search, Web Search, Arxiv Search)
 Tool Calling의 결과에 근거하여 간결하고 논리적인 답변을 생성해주세요.
 답변 생성시, 사용한 tool의 이름 및 관련 근거 내용의 출처도 함께 제공해주세요.
 만약 Tool Calling 결과에 관련 정보가 없다면, '모르겠습니다'라고 답변해주세요.

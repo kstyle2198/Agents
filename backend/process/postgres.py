@@ -153,7 +153,7 @@ class PostgresPipeline:
         cur = None
 
         # 컬럼 이름을 SQL 쿼리 형식으로 변환
-        columns = ['id', 'session_id', 'query', 'refined_query', 'answer','search_results', 'created_at', 'updated_at']
+        columns = ['session_id', 'query', 'refined_query', 'answer', 'created_at', 'updated_at']
         columns_sql = ", ".join(columns)
         placeholders = ", ".join(["%s"] * len(columns))
         
@@ -167,12 +167,10 @@ class PostgresPipeline:
 
             # 데이터 정규화            
             new_row = [
-                str(uuid4()),
                 data.get("session_id"),
                 data.get("query"),
                 data.get("refined_query"),
                 data.get("answer"),
-                Json(data.get("search_results")),
                 data.get("created_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")),
                 data.get("updated_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"))
                 ]
@@ -270,12 +268,11 @@ if __name__ == "__main__":
 
     # Create Table
     agent_schema = [
-        {'name': 'id', 'type': 'VARCHAR(300) NOT NULL'}, 
+        {'name': 'id', 'type': 'BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY'}, 
         {'name': 'session_id', 'type': 'VARCHAR(300) NOT NULL'}, 
         {'name': 'query', 'type': 'TEXT NOT NULL'}, 
         {'name': 'refined_query', 'type': 'TEXT NOT NULL'}, 
         {'name': 'answer', 'type': 'TEXT NOT NULL'}, 
-        {'name': 'search_results', 'type': 'JSONB'}, 
         {"name": "created_at", "type": "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP"},
         {"name": "updated_at", "type": "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP"}
         ]

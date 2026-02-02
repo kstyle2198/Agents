@@ -162,23 +162,9 @@ async def generate_chat_stream(input_data: dict, config: dict, session_id: str) 
     # Postgres 저장
     final_state = await rag_app.ainvoke(input_data, config=config)
     human_messages = [msg for msg in final_state['messages'] if isinstance(msg, HumanMessage)]
-    data = {"session_id": session_id, "query": human_messages[-1].content, "refined_query": final_state['refined_query'], "answer": final_state['answer'], "search_results": final_state['search_results']}
+    data = {"session_id": session_id, "query": human_messages[-1].content, "refined_query": final_state['refined_query'], "answer": final_state['answer']}
     pg.insert_agent_data(table_name="agent", data=data)
     logger.info("Postress Saved Successfully")
-
-
-# @rag_agent.post("/rag_chat_stream", tags=["rag_agent"])
-# async def chat_stream(req: ChatRequest):
-#     # 세션 ID 생성 또는 유지
-#     session_id = req.session_id if req.session_id else str(uuid.uuid4())
-#     config = {"configurable": {"thread_id": session_id}}
-    
-#     input_data = {"messages": [HumanMessage(content=req.question)]}
-    
-#     return StreamingResponse(
-#         generate_chat_stream(input_data, config, session_id),
-#         media_type="application/x-ndjson" # Newline Delimited JSON
-#     )
 
 
 async def save_to_postgres(input_data, config, session_id):
@@ -190,7 +176,6 @@ async def save_to_postgres(input_data, config, session_id):
         "query": human_messages[-1].content,
         "refined_query": final_state["refined_query"],
         "answer": final_state["answer"],
-        "search_results": final_state["search_results"],
     }
 
     pg.insert_agent_data("agent", data)
